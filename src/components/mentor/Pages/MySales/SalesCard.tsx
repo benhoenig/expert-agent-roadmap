@@ -127,6 +127,7 @@ export function SalesCard({
               selectedWeek={selectedWeek}
               salesProgressData={salesProgressData}
               metadata={metadata}
+              getCurrentTarget={getCurrentTarget}
             />
 
             {/* KPI and Actions */}

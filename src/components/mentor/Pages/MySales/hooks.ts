@@ -598,21 +598,13 @@ export const useTargetModal = () => {
       // Show success message
       toast.success(`Target for ${selectedTarget.name} set to ${selectedTarget.newTarget}`);
       
-      // Clear the cache for this sales/week combo to force a fresh fetch next time
-      const cacheKey = `${targetSalesId}-${targetWeek}`;
-      delete targetDataCache.current[cacheKey];
-      
       // Reset selected target
       setSelectedTarget(null);
       
-      // Add a delay before fetching data to prevent rapid re-renders
-      // This helps avoid potential refresh loops
-      setTimeout(() => {
-        if (isMountedRef.current) {
-          // Fetch the updated target data (with a force refresh) to update all displays
-          fetchTargetData(targetSalesId, targetWeek, true);
-        }
-      }, 500);
+      // Refresh the entire page instead of trying to update state
+      // This will clear all state and fetch fresh data from the API
+      // It's a simpler solution than trying to fix complex state update loops
+      window.location.reload();
       
     } catch (error) {
       console.error('Error saving target:', error);
@@ -621,7 +613,7 @@ export const useTargetModal = () => {
       // Reopen the modal if there was an error
       setIsTargetModalOpen(true);
     }
-  }, [selectedTarget, targetSalesId, targetWeek, fetchTargetData]);
+  }, [selectedTarget, targetSalesId, targetWeek]);
 
   return {
     isTargetModalOpen,

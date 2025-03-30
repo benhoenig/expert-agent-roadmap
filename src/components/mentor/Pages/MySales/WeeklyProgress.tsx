@@ -14,15 +14,17 @@ interface WeeklyProgressProps {
   selectedWeek: number;
   salesProgressData: Record<string, SalesProgressData>;
   metadata: DashboardMetadata | null;
+  getCurrentTarget: (type: 'action' | 'skillset' | 'requirement', id: number, salesId?: number, weekNumber?: number) => number;
 }
 
 export function WeeklyProgress({ 
   salesId, 
   selectedWeek, 
   salesProgressData, 
-  metadata 
+  metadata,
+  getCurrentTarget
 }: WeeklyProgressProps) {
-  const progressPercentage = calculateWeeklyProgressPercentage(salesId, selectedWeek, salesProgressData, metadata);
+  const progressPercentage = calculateWeeklyProgressPercentage(salesId, selectedWeek, salesProgressData, metadata, getCurrentTarget);
   const isGoodProgress = progressPercentage >= 70;
 
   return (
@@ -40,9 +42,9 @@ export function WeeklyProgress({
         />
       </div>
       <div className="flex justify-between text-xs text-muted-foreground mt-1">
-        <span>KPIs: {getCompletedKPIsCount(salesId, selectedWeek, salesProgressData)}/{getTotalKPIsCount(salesId, selectedWeek, salesProgressData, metadata)}</span>
-        <span>Skillsets: {getCompletedSkillsetsCount(salesId, selectedWeek, salesProgressData)}/{getTotalSkillsetsCount(metadata)}</span>
-        <span>Requirements: {getCompletedRequirementsCount(salesId, selectedWeek, salesProgressData)}/{getTotalRequirementsCount(metadata)}</span>
+        <span>KPIs: {getCompletedKPIsCount(salesId, selectedWeek, salesProgressData, getCurrentTarget)}/{getTotalKPIsCount(salesId, selectedWeek, salesProgressData, metadata)}</span>
+        <span>Skillsets: {getCompletedSkillsetsCount(salesId, selectedWeek, salesProgressData, getCurrentTarget)}/{getTotalSkillsetsCount(metadata)}</span>
+        <span>Requirements: {getCompletedRequirementsCount(salesId, selectedWeek, salesProgressData, getCurrentTarget)}/{getTotalRequirementsCount(metadata)}</span>
       </div>
     </div>
   );
