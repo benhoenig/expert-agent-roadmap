@@ -1,8 +1,11 @@
-import { TrendingUp } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useState } from "react";
+import { CircularProgress } from "@/components/ui/circular-progress";
 
 export function SalesProgress() {
+  const [progressPercentage, setProgressPercentage] = useState(75); // Example progress value
+  const [probationPercentage, setProbationPercentage] = useState(60); // Example probation value
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -21,8 +24,13 @@ export function SalesProgress() {
         
         <TabsContent value="progress" className="mt-6">
           <div className="rounded-lg border p-6">
-            <h3 className="text-lg font-medium mb-4">Weekly Progress</h3>
-            <p>Your progress details will appear here.</p>
+            <h3 className="text-lg font-medium mb-6">Weekly Progress</h3>
+            
+            <CircularProgress 
+              progressPercentage={progressPercentage}
+              probationPercentage={probationPercentage}
+              size="md"
+            />
           </div>
         </TabsContent>
         
