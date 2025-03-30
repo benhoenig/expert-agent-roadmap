@@ -4,13 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { RefreshCw, PlusCircle, MinusCircle } from "lucide-react";
+import { RefreshCw, PlusCircle, MinusCircle, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { xanoService } from "@/services/xanoService";
 
@@ -101,6 +104,14 @@ interface SalesProgressData {
   }[];
 }
 
+interface TargetState {
+  type: 'action' | 'skillset' | 'requirement';
+  id: number;
+  name: string;
+  currentTarget: number;
+  newTarget: number;
+}
+
 export function MentorMySales() {
   const [salesData, setSalesData] = useState<SalesUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -111,6 +122,11 @@ export function MentorMySales() {
   const [isMetadataLoading, setIsMetadataLoading] = useState(true);
   const [salesProgressData, setSalesProgressData] = useState<Record<string, SalesProgressData>>({});
   const [isProgressLoading, setIsProgressLoading] = useState<Record<string, boolean>>({});
+  const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
+  const [targetCategory, setTargetCategory] = useState<'action' | 'skillset' | 'requirement'>('action');
+  const [selectedTarget, setSelectedTarget] = useState<TargetState | null>(null);
+  const [targetSalesId, setTargetSalesId] = useState<number | null>(null);
+  const [targetWeek, setTargetWeek] = useState<number | null>(null);
 
   // Weekly performance data - would be fetched from the API in a real application
   const [weeklyData, setWeeklyData] = useState<Record<number, WeeklyPerformance[]>>({
@@ -483,6 +499,61 @@ export function MentorMySales() {
     toast.success("Data refreshed successfully");
   };
 
+  // Handle opening the target dialog
+  const handleOpenTargetDialog = (salesId: number, weekNumber: number) => {
+    setTargetSalesId(salesId);
+    setTargetWeek(weekNumber);
+    setTargetCategory('action');
+    setIsTargetModalOpen(true);
+  };
+
+  // Handle target selection
+  const handleSelectTarget = (type: 'action' | 'skillset' | 'requirement', id: number, name: string, currentTarget: number = 0) => {
+    setSelectedTarget({
+      type,
+      id,
+      name,
+      currentTarget,
+      newTarget: currentTarget
+    });
+  };
+
+  // Handle target value change
+  const handleTargetValueChange = (value: string) => {
+    if (selectedTarget) {
+      setSelectedTarget({
+        ...selectedTarget,
+        newTarget: parseInt(value) || 0
+      });
+    }
+  };
+
+  // Handle saving the target
+  const handleSaveTarget = async () => {
+    if (!selectedTarget || targetSalesId === null || targetWeek === null) return;
+
+    try {
+      // For now, just log the target settings - we'll connect to API later
+      console.log('Saving target:', {
+        salesId: targetSalesId,
+        weekNumber: targetWeek,
+        targetType: selectedTarget.type,
+        targetId: selectedTarget.id,
+        targetName: selectedTarget.name,
+        targetValue: selectedTarget.newTarget
+      });
+
+      // Show success message
+      toast.success(`Target for ${selectedTarget.name} set to ${selectedTarget.newTarget}`);
+      
+      // Reset selected target
+      setSelectedTarget(null);
+    } catch (error) {
+      console.error('Error saving target:', error);
+      toast.error('Failed to save target');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <motion.div
@@ -533,6 +604,132 @@ export function MentorMySales() {
             </CardContent>
           </Card>
         )}
+
+        {/* Set Target Modal */}
+        <Dialog open={isTargetModalOpen} onOpenChange={setIsTargetModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Set Performance Targets</DialogTitle>
+              <DialogDescription>
+                Set targets for each performance metric that the sales agent should achieve.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <Tabs defaultValue="action" value={targetCategory} onValueChange={(value) => setTargetCategory(value as 'action' | 'skillset' | 'requirement')}>
+              <TabsList className="grid grid-cols-3">
+                <TabsTrigger value="action">Actions</TabsTrigger>
+                <TabsTrigger value="skillset">Skillsets</TabsTrigger>
+                <TabsTrigger value="requirement">Requirements</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="action" className="mt-4">
+                <div className="space-y-4">
+                  <div className="text-sm font-medium">Select an action to set its target:</div>
+                  <div className="max-h-60 overflow-y-auto pr-2 space-y-2">
+                    {metadata?.mentorDashboard_actionKpi_masterData?.map((kpi, index) => (
+                      <div 
+                        key={index}
+                        className={`p-3 border rounded-md cursor-pointer transition-colors ${
+                          selectedTarget?.type === 'action' && selectedTarget?.id === index
+                            ? 'border-gold-500 bg-gold-50'
+                            : 'hover:border-gold-200'
+                        }`}
+                        onClick={() => handleSelectTarget('action', index, kpi.kpi_name)}
+                      >
+                        <div className="font-medium">{kpi.kpi_name}</div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          Current target: N/A
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="skillset" className="mt-4">
+                <div className="space-y-4">
+                  <div className="text-sm font-medium">Select a skillset to set its target:</div>
+                  <div className="max-h-60 overflow-y-auto pr-2 space-y-2">
+                    {metadata?.mentorDashboard_skillsetKpi_masterData?.map((kpi, index) => (
+                      <div 
+                        key={index}
+                        className={`p-3 border rounded-md cursor-pointer transition-colors ${
+                          selectedTarget?.type === 'skillset' && selectedTarget?.id === index
+                            ? 'border-gold-500 bg-gold-50'
+                            : 'hover:border-gold-200'
+                        }`}
+                        onClick={() => handleSelectTarget('skillset', index, kpi.kpi_name)}
+                      >
+                        <div className="font-medium">{kpi.kpi_name}</div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          Current target: N/A
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="requirement" className="mt-4">
+                <div className="space-y-4">
+                  <div className="text-sm font-medium">Select a requirement to set its target:</div>
+                  <div className="max-h-60 overflow-y-auto pr-2 space-y-2">
+                    {metadata?.mentorDashboard_requirement_masterData?.map((req, index) => (
+                      <div 
+                        key={index}
+                        className={`p-3 border rounded-md cursor-pointer transition-colors ${
+                          selectedTarget?.type === 'requirement' && selectedTarget?.id === index
+                            ? 'border-gold-500 bg-gold-50'
+                            : 'hover:border-gold-200'
+                        }`}
+                        onClick={() => handleSelectTarget('requirement', index, req.requirement_name)}
+                      >
+                        <div className="font-medium">{req.requirement_name}</div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          Current target: N/A
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+            
+            {selectedTarget && (
+              <>
+                <Separator />
+                <div className="space-y-4 pt-2">
+                  <div>
+                    <div className="text-sm font-medium mb-2">Set target for: {selectedTarget.name}</div>
+                    <Input 
+                      type="number" 
+                      min="0"
+                      value={selectedTarget.newTarget.toString()}
+                      onChange={(e) => handleTargetValueChange(e.target.value)}
+                      placeholder="Enter target value"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+            
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsTargetModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveTarget}
+                disabled={!selectedTarget}
+                className="bg-gold-500 hover:bg-gold-600 text-white"
+              >
+                Save Target
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Sales Accordions */}
         {!isLoading && !error && salesData.length > 0 && (
@@ -607,23 +804,36 @@ export function MentorMySales() {
 
                       {/* Week Selection */}
                       <div className="mb-6">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-medium">Week {selectedWeek} Performance</h3>
-                          <div className="w-32">
-                            <Select
-                              value={selectedWeek.toString()}
-                              onValueChange={(value) => handleWeekChange(sales.id, value)}
-                            >
-                              <SelectTrigger className="h-8">
-                                <SelectValue placeholder="Select week" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {Array.from({ length: 12 }, (_, i) => i + 1).map((week) => (
-                                  <SelectItem key={week} value={week.toString()}>Week {week}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-medium">Week {selectedWeek} Performance</h3>
+                            <div className="w-32">
+                              <Select
+                                value={selectedWeek.toString()}
+                                onValueChange={(value) => handleWeekChange(sales.id, value)}
+                              >
+                                <SelectTrigger className="h-8">
+                                  <SelectValue placeholder="Select week" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Array.from({ length: 12 }, (_, i) => i + 1).map((week) => (
+                                    <SelectItem key={week} value={week.toString()}>Week {week}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
+                          
+                          {/* Set Target Button */}
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            className="border-gold-500 text-gold-500 hover:bg-gold-50"
+                            onClick={() => handleOpenTargetDialog(sales.id, selectedWeek)}
+                          >
+                            <Target className="mr-1 h-3 w-3" />
+                            Set Target
+                          </Button>
                         </div>
                         <Separator className="my-4" />
                       </div>
@@ -875,7 +1085,7 @@ export function MentorMySales() {
                 );
               })}
             </Accordion>
-      </div>
+          </div>
         )}
       </motion.div>
     </div>
