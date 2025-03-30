@@ -111,42 +111,11 @@ export function MentorMySales() {
     }, 500);
   };
 
-  const handleRefresh = async () => {
-    // Show loading toast that will be replaced by success/error
-    const toastId = toast.loading("Refreshing data...");
-    
-    try {
-      // Use a much larger delay between API calls to avoid rate limits
-      // First refresh sales data
-      await refreshSalesData().catch(err => {
-        console.error("Error refreshing sales data:", err);
-      });
-      
-      // Wait longer between calls to avoid rate limits
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Then refresh metadata
-      await refreshMetadata().catch(err => {
-        console.error("Error refreshing metadata:", err);
-      });
-      
-      // Wait even longer before progress data
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Finally refresh progress data (already staggered internally)
-      await refreshAllProgressData();
-      
-      // Update toast to success
-      toast.success("Data refreshed successfully", {
-        id: toastId
-      });
-    } catch (error) {
-      console.error("Error refreshing data:", error);
-      // Update toast to error
-      toast.error("Some data couldn't be refreshed due to rate limits. Please try again later.", {
-        id: toastId
-      });
-    }
+  const handleRefresh = () => {
+    // Simple page reload without any state management
+    // This completely refreshes the page and all state/data
+    toast.loading("Refreshing page...");
+    window.location.reload();
   };
 
   return (
