@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,6 +8,7 @@ import { DashboardLayout } from "./components/dashboard/Layout";
 import { UserDashboard } from "./components/dashboard/Pages/User";
 import { MasterData } from "./components/dashboard/Pages/MasterData";
 import { Content } from "./components/dashboard/Pages/Content";
+import { MentorSalesAssignment } from "./components/dashboard/Pages/MentorSalesAssignment";
 import { SalesLayout } from "./components/sales/SalesLayout";
 import { SalesRoadmap } from "./components/sales/Pages/Roadmap";
 import { SalesProgress } from "./components/sales/Pages/Progress";
@@ -36,6 +36,7 @@ const App = () => (
           {/* Dashboard routes - Admin */}
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<UserDashboard />} />
+            <Route path="mentor-sales" element={<MentorSalesAssignment />} />
             <Route path="master-data" element={<MasterData />} />
             <Route path="content" element={<Content />} />
           </Route>
