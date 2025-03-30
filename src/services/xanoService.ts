@@ -212,5 +212,72 @@ export const xanoService = {
     if (!response.ok) {
       throw new Error('Failed to delete user');
     }
+  },
+
+  // Mentor Sales Assignment
+  async getMentorSalesAssignments() {
+    try {
+      console.log('Fetching mentor sales assignments...');
+      const response = await xanoApi.get('/mentor_sales_assign');
+      console.log('Mentor sales assignments data:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching mentor sales assignments:', error);
+      throw error;
+    }
+  },
+
+  async getMentorsList() {
+    try {
+      console.log('Fetching available mentors list...');
+      const response = await xanoApi.get('/mentor_sales_assign_select');
+      console.log('Mentors list response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching mentors list:', error);
+      throw error;
+    }
+  },
+
+  async assignMentorToSales(salesId: number, mentorId: number) {
+    try {
+      const payload = {
+        sales_id: salesId,
+        mentor_id: mentorId
+      };
+      
+      console.log('Assigning mentor to sales with payload:', payload);
+      const response = await xanoApi.post('/mentor_sales_assign_select', payload);
+      console.log('Mentor assignment raw response:', response);
+      console.log('Mentor assignment response data:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error assigning mentor to sales:', error);
+      if (error.response) {
+        console.error('Error response data:', error.response.data);
+        console.error('Error response status:', error.response.status);
+      }
+      throw error;
+    }
+  },
+
+  async unassignMentor(salesId: number) {
+    try {
+      const payload = {
+        sales_id: salesId
+      };
+      
+      console.log('Unassigning mentor with payload:', payload);
+      const response = await xanoApi.post(`/mentor_sales_assign_select/unassign`, payload);
+      console.log('Mentor unassignment response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error unassigning mentor:', error);
+      if (error.response) {
+        console.error('Error response data:', error.response.data);
+        console.error('Error response status:', error.response.status);
+      }
+      throw error;
+    }
   }
 }; 
