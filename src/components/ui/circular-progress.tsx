@@ -5,13 +5,15 @@ interface CircularProgressProps {
   probationPercentage: number;
   className?: string;
   size?: "sm" | "md" | "lg";
+  rank?: string;
 }
 
 export function CircularProgress({
   progressPercentage,
   probationPercentage,
   className,
-  size = "md"
+  size = "md",
+  rank
 }: CircularProgressProps) {
   // Size mapping
   const sizeMap = {
@@ -23,6 +25,13 @@ export function CircularProgress({
   return (
     <div className={cn("flex flex-col items-center justify-center", className)}>
       <div className={cn("relative", sizeMap[size])}>
+        {/* Rank Badge (if provided) */}
+        {rank && (
+          <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-xs font-semibold px-2 py-1 rounded-full z-10 shadow-md">
+            {rank}
+          </div>
+        )}
+        
         {/* Outer ring - Progress */}
         <svg className="w-full h-full" viewBox="0 0 100 100">
           <circle 
@@ -31,7 +40,7 @@ export function CircularProgress({
             r="45" 
             fill="transparent" 
             stroke="#e6e6e6" 
-            strokeWidth="8" 
+            strokeWidth="6" 
           />
           <circle 
             cx="50" 
@@ -39,7 +48,7 @@ export function CircularProgress({
             r="45" 
             fill="transparent" 
             stroke="#10b981" // Green color for progress
-            strokeWidth="8" 
+            strokeWidth="6" 
             strokeDasharray={`${2 * Math.PI * 45 * progressPercentage / 100} ${2 * Math.PI * 45 * (1 - progressPercentage / 100)}`}
             strokeDashoffset={2 * Math.PI * 45 * 0.25} // Start from top
             strokeLinecap="round"
@@ -53,7 +62,7 @@ export function CircularProgress({
             r="35" 
             fill="transparent" 
             stroke="#e6e6e6" 
-            strokeWidth="8" 
+            strokeWidth="6" 
           />
           <circle 
             cx="50" 
@@ -61,7 +70,7 @@ export function CircularProgress({
             r="35" 
             fill="transparent" 
             stroke="hsl(var(--primary))" // Primary app color
-            strokeWidth="8" 
+            strokeWidth="6" 
             strokeDasharray={`${2 * Math.PI * 35 * probationPercentage / 100} ${2 * Math.PI * 35 * (1 - probationPercentage / 100)}`}
             strokeDashoffset={2 * Math.PI * 35 * 0.25} // Start from top
             strokeLinecap="round"
