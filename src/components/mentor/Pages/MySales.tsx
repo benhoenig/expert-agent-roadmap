@@ -401,8 +401,8 @@ export function MentorMySales() {
         transition={{ duration: 0.3 }}
       >
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">My Sales</h2>
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight">My Sales</h2>
             <p className="text-muted-foreground">View and manage your assigned sales agents</p>
           </div>
           
@@ -528,10 +528,9 @@ export function MentorMySales() {
                                 <SelectValue placeholder="Select week" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="1">Week 1</SelectItem>
-                                <SelectItem value="2">Week 2</SelectItem>
-                                <SelectItem value="3">Week 3</SelectItem>
-                                <SelectItem value="4">Week 4</SelectItem>
+                                {Array.from({ length: 12 }, (_, i) => i + 1).map((week) => (
+                                  <SelectItem key={week} value={week.toString()}>Week {week}</SelectItem>
+                                ))}
                               </SelectContent>
                             </Select>
                           </div>
@@ -567,17 +566,26 @@ export function MentorMySales() {
                                 
                                 // Use the actual value if available, otherwise use 0
                                 const count = actionProgress?.kpi_action_progress_count || 0;
-                                // Default target value - in a real app, this would come from the API
-                                const target = 100;
+                                // Default target value - for now, display N/A until the API provides target values
+                                const hasTarget = false; // This will be true when API provides target values
                                 
                                 return (
                                   <div key={index} className="grid grid-cols-12 gap-2 items-center">
                                     <div className="col-span-4">{kpi.kpi_name}</div>
                                     <div className="col-span-5">
-                                      <Progress value={(count / target) * 100} className="h-2" />
+                                      {hasTarget ? (
+                                        <Progress value={(count / 100) * 100} className="h-2" />
+                                      ) : (
+                                        <div className="h-2 w-full bg-gray-100 rounded-full">
+                                          <div 
+                                            className="h-full bg-primary rounded-full" 
+                                            style={{ width: `${count}%`, maxWidth: '100%' }}
+                                          />
+                                        </div>
+                                      )}
                                     </div>
                                     <div className="col-span-3 text-sm">
-                                      {count} / {target}
+                                      {count} {hasTarget ? '/ 100' : '/ N/A'}
                                     </div>
                                   </div>
                                 );
@@ -733,7 +741,7 @@ export function MentorMySales() {
                 );
               })}
             </Accordion>
-          </div>
+      </div>
         )}
       </motion.div>
     </div>
