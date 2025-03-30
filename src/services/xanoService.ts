@@ -57,14 +57,28 @@ export const xanoService = {
   
   login: async (credentials: { username: string; password: string }) => {
     try {
+      console.log('Attempting login with:', { username: credentials.username });
       const response = await xanoApi.post("/auth/login", credentials);
       if (!response.data || !response.data.authToken) {
         throw new Error("Invalid response from server: Missing authentication token");
       }
       // Token storage is handled in the component based on "Remember Me" checkbox
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login error:", error);
+      
+      // Provide more specific error messages based on the error status
+      if (error.response) {
+        console.error('Error response status:', error.response.status);
+        console.error('Error response data:', error.response.data);
+        
+        // If the server returns a 500 error for invalid credentials
+        // We'll transform it to a more appropriate credential error message
+        if (error.response.status === 500) {
+          throw new Error("Invalid username or password. Please try again.");
+        }
+      }
+      
       throw error;
     }
   },
@@ -273,6 +287,23 @@ export const xanoService = {
       return response.data;
     } catch (error: any) {
       console.error('Error unassigning mentor:', error);
+      if (error.response) {
+        console.error('Error response data:', error.response.data);
+        console.error('Error response status:', error.response.status);
+      }
+      throw error;
+    }
+  },
+
+  // Mentor Dashboard - My Sales
+  async getMentorDashboardSales() {
+    try {
+      console.log('Fetching mentor dashboard sales data...');
+      const response = await xanoApi.get('/mentor_dashboard_sales');
+      console.log('Mentor dashboard sales response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching mentor dashboard sales:', error);
       if (error.response) {
         console.error('Error response data:', error.response.data);
         console.error('Error response status:', error.response.status);

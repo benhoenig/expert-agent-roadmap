@@ -78,7 +78,20 @@ export function SignInForm() {
       }
     } catch (err: any) {
       console.error("Login error:", err);
-      const errorMessage = err.response?.data?.message || "Failed to sign in. Please check your credentials.";
+      
+      // Provide a more user-friendly error message
+      let errorMessage = "Failed to sign in. Please check your credentials.";
+      
+      // Use specific error message if available
+      if (err.message === "Invalid username or password. Please try again.") {
+        errorMessage = err.message;
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.message) {
+        // For other error messages from our service
+        errorMessage = err.message;
+      }
+      
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
