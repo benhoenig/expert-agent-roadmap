@@ -278,11 +278,11 @@ export function MentorMySales() {
     fetchSalesProgress(salesId, weekNumber);
   };
   
-  const fetchSalesProgress = async (salesId: number, weekNumber: number) => {
+  const fetchSalesProgress = async (salesId: number, weekNumber: number, forceRefresh = false) => {
     const key = `${salesId}-${weekNumber}`;
     
-    // If we already have this data, don't fetch again
-    if (salesProgressData[key]) return;
+    // If we already have this data and don't need to force refresh, don't fetch again
+    if (salesProgressData[key] && !forceRefresh) return;
     
     try {
       setIsProgressLoading(prev => ({ ...prev, [key]: true }));
@@ -393,6 +393,96 @@ export function MentorMySales() {
     return !!isProgressLoading[key];
   };
 
+  // Get progress data and statistics
+  const calculateWeeklyProgressPercentage = (salesId: number, weekNumber: number) => {
+    // If we have metadata but no progress data yet, return 0
+    if (!getSalesProgressData(salesId, weekNumber)) {
+      return 0;
+    }
+    
+    // Calculate the overall percentage based on all three categories
+    const kpiPercentage = getCompletedKPIsCount(salesId, weekNumber) / getTotalKPIsCount(salesId, weekNumber) || 0;
+    const skillsetPercentage = getCompletedSkillsetsCount(salesId, weekNumber) / getTotalSkillsetsCount() || 0;
+    const requirementPercentage = getCompletedRequirementsCount(salesId, weekNumber) / getTotalRequirementsCount() || 0;
+    
+    // Calculate average percentage across all categories
+    const overallPercentage = ((kpiPercentage + skillsetPercentage + requirementPercentage) / 3) * 100;
+    return Math.round(overallPercentage);
+  };
+
+  const getCompletedKPIsCount = (salesId: number, weekNumber: number) => {
+    const key = `${salesId}-${weekNumber}`;
+    if (salesProgressData[key] && salesProgressData[key].result1) {
+      // Count KPIs that meet the target (for demo, count > 50)
+      return salesProgressData[key].result1.filter(action => action.kpi_action_progress_count >= 50).length;
+    }
+    return 0;
+  };
+
+  const getTotalKPIsCount = (salesId: number, weekNumber: number) => {
+    const progressData = getSalesProgressData(salesId, weekNumber);
+    if (progressData && progressData.result1) {
+      return progressData.result1.length;
+    }
+    
+    // If no progress data yet, use metadata
+    if (metadata?.mentorDashboard_actionKpi_masterData) {
+      return metadata.mentorDashboard_actionKpi_masterData.length;
+    }
+    
+    return 0;
+  };
+
+  const getCompletedSkillsetsCount = (salesId: number, weekNumber: number) => {
+    const key = `${salesId}-${weekNumber}`;
+    if (salesProgressData[key] && salesProgressData[key].kpi_skillset_progress_max) {
+      // Count skillsets that meet the target (for demo, score > 70)
+      return salesProgressData[key].kpi_skillset_progress_max.filter(
+        skillset => skillset.kpi_skillset_progress_total_score >= 70
+      ).length;
+    }
+    return 0;
+  };
+
+  const getTotalSkillsetsCount = () => {
+    // Use metadata for total count
+    if (metadata?.mentorDashboard_skillsetKpi_masterData) {
+      return metadata.mentorDashboard_skillsetKpi_masterData.length;
+    }
+    return 0;
+  };
+
+  const getCompletedRequirementsCount = (salesId: number, weekNumber: number) => {
+    const key = `${salesId}-${weekNumber}`;
+    if (salesProgressData[key] && salesProgressData[key].requirement_progress1) {
+      // Count requirements that meet the target (for demo, count >= 1)
+      return salesProgressData[key].requirement_progress1.filter(req => req.requirement_progress_count >= 1).length;
+    }
+    return 0;
+  };
+
+  const getTotalRequirementsCount = () => {
+    // Use metadata for total count
+    if (metadata?.mentorDashboard_requirement_masterData) {
+      return metadata.mentorDashboard_requirement_masterData.length;
+    }
+    return 0;
+  };
+
+  const handleRefresh = async () => {
+    await fetchMySales();
+    
+    // After sales data is refreshed, reload progress data for all sales
+    salesData.forEach(sales => {
+      const selectedWeek = selectedWeeks[sales.id] || 1;
+      
+      // Fetch fresh progress data with forceRefresh=true
+      fetchSalesProgress(sales.id, selectedWeek, true);
+    });
+    
+    toast.success("Data refreshed successfully");
+  };
+
   return (
     <div className="space-y-6">
       <motion.div
@@ -407,7 +497,7 @@ export function MentorMySales() {
           </div>
           
           <Button 
-            onClick={fetchMySales}
+            onClick={handleRefresh}
             variant="outline" 
             className="border-gold-500 text-gold-500 hover:bg-gold-50"
           >
@@ -538,6 +628,31 @@ export function MentorMySales() {
                         <Separator className="my-4" />
                       </div>
 
+                      {/* Weekly Progress Summary */}
+                      <div className="mb-6">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-md font-medium">Weekly Progress</h4>
+                          <span className="text-sm font-medium text-muted-foreground">
+                            {calculateWeeklyProgressPercentage(sales.id, selectedWeek)}%
+                          </span>
+                        </div>
+                        <div className="h-2.5 w-full bg-gray-100 rounded-full">
+                          <div 
+                            className={`h-full rounded-full ${
+                              calculateWeeklyProgressPercentage(sales.id, selectedWeek) >= 70 
+                                ? 'bg-green-500' 
+                                : 'bg-gold-500'
+                            }`}
+                            style={{ width: `${calculateWeeklyProgressPercentage(sales.id, selectedWeek)}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                          <span>KPIs: {getCompletedKPIsCount(sales.id, selectedWeek)}/{getTotalKPIsCount(sales.id, selectedWeek)}</span>
+                          <span>Skillsets: {getCompletedSkillsetsCount(sales.id, selectedWeek)}/{getTotalSkillsetsCount()}</span>
+                          <span>Requirements: {getCompletedRequirementsCount(sales.id, selectedWeek)}/{getTotalRequirementsCount()}</span>
+                        </div>
+                      </div>
+
                       {/* KPI and Actions */}
                       <div className="mb-6">
                         <h4 className="text-md font-medium mb-3">KPI</h4>
@@ -568,17 +683,23 @@ export function MentorMySales() {
                                 const count = actionProgress?.kpi_action_progress_count || 0;
                                 // Default target value - for now, display N/A until the API provides target values
                                 const hasTarget = false; // This will be true when API provides target values
+                                // For demo, use 50 as the mock target to show the color change logic
+                                const mockTarget = 50;
+                                const isTargetMet = count >= mockTarget;
                                 
                                 return (
                                   <div key={index} className="grid grid-cols-12 gap-2 items-center">
                                     <div className="col-span-4">{kpi.kpi_name}</div>
                                     <div className="col-span-5">
                                       {hasTarget ? (
-                                        <Progress value={(count / 100) * 100} className="h-2" />
+                                        <Progress 
+                                          value={(count / 100) * 100} 
+                                          className={`h-2 ${isTargetMet ? 'bg-secondary [&>div]:bg-green-500' : 'bg-secondary [&>div]:bg-gold-500'}`}
+                                        />
                                       ) : (
                                         <div className="h-2 w-full bg-gray-100 rounded-full">
                                           <div 
-                                            className="h-full bg-primary rounded-full" 
+                                            className={`h-full rounded-full ${isTargetMet ? 'bg-green-500' : 'bg-gold-500'}`}
                                             style={{ width: `${count}%`, maxWidth: '100%' }}
                                           />
                                         </div>
@@ -612,13 +733,14 @@ export function MentorMySales() {
                               <tr className="border-b">
                                 <th className="text-left py-2 px-2 font-medium text-muted-foreground">Skillset</th>
                                 <th className="text-center py-2 px-2 font-medium text-muted-foreground">Score</th>
+                                <th className="text-center py-2 px-2 font-medium text-muted-foreground">Target</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y">
                               {/* Loading state */}
                               {isProgressDataLoading(sales.id, selectedWeek) && (
                                 <tr>
-                                  <td colSpan={2} className="py-4 text-center">
+                                  <td colSpan={3} className="py-4 text-center">
                                     <div className="flex justify-center">
                                       <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-gold-500"></div>
                                     </div>
@@ -636,14 +758,20 @@ export function MentorMySales() {
                                 
                                 // Use 0 if no score is found
                                 const score = skillScore?.kpi_skillset_progress_total_score || 0;
+                                // For demo, use 70 as the mock target to show the color change logic
+                                const mockTarget = 70;
+                                const isTargetMet = score >= mockTarget;
                                 
                                 return (
                                   <tr key={index}>
                                     <td className="py-2 px-2">{skillset.kpi_name}</td>
                                     <td className="text-center py-2 px-2">
-                                      <Badge className="bg-gold-100 text-gold-800">
+                                      <Badge className={isTargetMet ? "bg-green-100 text-green-800" : "bg-gold-100 text-gold-800"}>
                                         {formatSkillPercentage(score / 10)}
                                       </Badge>
+                                    </td>
+                                    <td className="text-center py-2 px-2 text-muted-foreground text-sm">
+                                      N/A
                                     </td>
                                   </tr>
                                 );
@@ -654,7 +782,7 @@ export function MentorMySales() {
                                 (!metadata?.mentorDashboard_skillsetKpi_masterData || 
                                 metadata.mentorDashboard_skillsetKpi_masterData.length === 0) && (
                                 <tr>
-                                  <td colSpan={2} className="py-4 text-center text-muted-foreground">
+                                  <td colSpan={3} className="py-4 text-center text-muted-foreground">
                                     No skillset data available
                                   </td>
                                 </tr>
@@ -686,13 +814,19 @@ export function MentorMySales() {
                                 
                                 // Use the actual count if available, otherwise use 0
                                 const count = reqProgress?.requirement_progress_count || 0;
+                                // For demo, use 1 as the mock target to show the color change logic
+                                const mockTarget = 1;
+                                const isTargetMet = count >= mockTarget;
                                 
                                 return (
                                   <div key={index} className="flex items-center justify-between">
                                     <span>{req.requirement_name}</span>
-                                    <Badge variant="outline" className={count > 0 ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-500"}>
-                                      {count}
-                                    </Badge>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline" className={isTargetMet ? "bg-green-100 text-green-800" : "bg-gold-100 text-gold-800"}>
+                                        {count}
+                                      </Badge>
+                                      <span className="text-muted-foreground text-sm">/ N/A</span>
+                                    </div>
                                   </div>
                                 );
                               })}
