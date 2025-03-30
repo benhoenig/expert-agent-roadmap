@@ -564,9 +564,6 @@ export const useTargetModal = () => {
       const mentorId = await xanoService.getCurrentMentorId();
       console.log("Current mentor ID for target update:", mentorId);
       
-      // Close the modal first for better UX
-      setIsTargetModalOpen(false);
-      
       // Prepare the update data for the API with all required parameters
       const updateData: any = {
         mentor_id: mentorId,
@@ -598,20 +595,59 @@ export const useTargetModal = () => {
       // Show success message
       toast.success(`Target for ${selectedTarget.name} set to ${selectedTarget.newTarget}`);
       
-      // Reset selected target
-      setSelectedTarget(null);
+      // Update local cache to reflect the new target
+      const cacheKey = `${targetSalesId}-${targetWeek}`;
       
-      // Refresh the entire page instead of trying to update state
-      // This will clear all state and fetch fresh data from the API
-      // It's a simpler solution than trying to fix complex state update loops
-      window.location.reload();
+      // Find the target in the current cache or create a new array if needed
+      const currentTargets = [...(targetDataCache.current[cacheKey] || [])];
+      
+      // Find the index of the existing target if it exists
+      const existingTargetIndex = currentTargets.findIndex(target => {
+        if (selectedTarget.type === 'action') {
+          return target.kpi_id === selectedTarget.id + 1 && (!target.requirement_id || target.requirement_id === 0);
+        } else if (selectedTarget.type === 'requirement') {
+          return target.requirement_id === selectedTarget.id + 1;
+        } else if (selectedTarget.type === 'skillset') {
+          return target.kpi_id === selectedTarget.id + 8 && (!target.requirement_id || target.requirement_id === 0);
+        }
+        return false;
+      });
+      
+      // Update or add the target in the cache
+      if (existingTargetIndex >= 0) {
+        // Update existing target
+        currentTargets[existingTargetIndex] = {
+          ...currentTargets[existingTargetIndex],
+          target_count: selectedTarget.newTarget
+        };
+      } else {
+        // Add new target
+        currentTargets.push({
+          kpi_id: selectedTarget.type === 'action' ? selectedTarget.id + 1 : 
+                  selectedTarget.type === 'skillset' ? selectedTarget.id + 8 : 0,
+          requirement_id: selectedTarget.type === 'requirement' ? selectedTarget.id + 1 : 0,
+          target_count: selectedTarget.newTarget
+        });
+      }
+      
+      // Update the cache
+      targetDataCache.current[cacheKey] = currentTargets;
+      
+      // Update the component state
+      setTargetData(currentTargets);
+      
+      // Update the current target in the UI
+      // This avoids having to choose the same item again
+      if (selectedTarget) {
+        setSelectedTarget({
+          ...selectedTarget,
+          currentTarget: selectedTarget.newTarget
+        });
+      }
       
     } catch (error) {
       console.error('Error saving target:', error);
       toast.error('Failed to save target. Please try again.');
-      
-      // Reopen the modal if there was an error
-      setIsTargetModalOpen(true);
     }
   }, [selectedTarget, targetSalesId, targetWeek]);
 
