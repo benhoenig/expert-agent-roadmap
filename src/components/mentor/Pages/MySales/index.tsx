@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
 import { RefreshCw } from "lucide-react";
@@ -49,11 +49,50 @@ export function MentorMySales() {
     selectedTarget,
     targetSalesId,
     targetWeek,
+    targetData,
+    isLoadingTargets,
     handleOpenTargetDialog,
     handleSelectTarget,
     handleTargetValueChange,
-    handleSaveTarget
+    handleSaveTarget,
+    getCurrentTarget,
+    fetchTargetData
   } = useTargetModal();
+
+  // State to track which accordion item is expanded
+  const [expandedSalesId, setExpandedSalesId] = useState<string | null>(null);
+  
+  // Handle accordion state change
+  const handleAccordionChange = (value: string) => {
+    setExpandedSalesId(value === expandedSalesId ? null : value);
+  };
+
+  // Additional logging to help diagnose issues
+  useEffect(() => {
+    if (salesData.length > 0 && Object.keys(selectedWeeks).length > 0) {
+      console.log("Sales data loaded:", {
+        salesCount: salesData.length,
+        selectedWeeks
+      });
+      
+      // We removed the preloadTargetData function because it was loading data
+      // for all sales cards even when they weren't visible to the user.
+      // Target data will now be loaded only when an accordion is expanded or
+      // when the target modal is opened, which is more efficient.
+    }
+  }, [salesData, selectedWeeks]);
+
+  // Only log modal state changes rather than on every render
+  useEffect(() => {
+    if (isTargetModalOpen) {
+      console.log("Modal opened:", { 
+        targetSalesId, 
+        targetWeek, 
+        targetCategory,
+        targetDataLength: targetData.length
+      });
+    }
+  }, [isTargetModalOpen, targetSalesId, targetWeek, targetCategory, targetData.length]);
 
   const handleWeekChange = (salesId: number, week: string) => {
     const weekNumber = parseInt(week);
@@ -62,15 +101,52 @@ export function MentorMySales() {
       [salesId]: weekNumber
     }));
     
-    // Fetch progress data for the selected sales and week
-    fetchSalesProgress(salesId, weekNumber);
+    // Allow a small delay before fetching to avoid rate limits
+    setTimeout(() => {
+      // Fetch progress data for the selected sales and week
+      fetchSalesProgress(salesId, weekNumber);
+      
+      // Also fetch target data for the selected week
+      fetchTargetData(salesId, weekNumber);
+    }, 500);
   };
 
   const handleRefresh = async () => {
-    await refreshSalesData();
-    await refreshMetadata();
-    refreshAllProgressData();
-    toast.success("Data refreshed successfully");
+    // Show loading toast that will be replaced by success/error
+    const toastId = toast.loading("Refreshing data...");
+    
+    try {
+      // Use a much larger delay between API calls to avoid rate limits
+      // First refresh sales data
+      await refreshSalesData().catch(err => {
+        console.error("Error refreshing sales data:", err);
+      });
+      
+      // Wait longer between calls to avoid rate limits
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Then refresh metadata
+      await refreshMetadata().catch(err => {
+        console.error("Error refreshing metadata:", err);
+      });
+      
+      // Wait even longer before progress data
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Finally refresh progress data (already staggered internally)
+      await refreshAllProgressData();
+      
+      // Update toast to success
+      toast.success("Data refreshed successfully", {
+        id: toastId
+      });
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+      // Update toast to error
+      toast.error("Some data couldn't be refreshed due to rate limits. Please try again later.", {
+        id: toastId
+      });
+    }
   };
 
   return (
@@ -135,14 +211,26 @@ export function MentorMySales() {
           handleTargetValueChange={handleTargetValueChange}
           handleSaveTarget={handleSaveTarget}
           metadata={metadata}
+          targetData={targetData}
+          isLoadingTargets={isLoadingTargets}
+          getCurrentTarget={getCurrentTarget}
+          targetSalesId={targetSalesId || undefined}
+          targetWeek={targetWeek || undefined}
         />
 
         {/* Sales Accordions */}
         {!isLoading && !error && salesData.length > 0 && (
           <div className="space-y-6">
-            <Accordion type="single" collapsible className="w-full space-y-4">
+            <Accordion 
+              type="single" 
+              collapsible 
+              className="w-full space-y-4"
+              value={expandedSalesId || ""}
+              onValueChange={handleAccordionChange}
+            >
               {salesData.map((sales) => {
                 const selectedWeek = selectedWeeks[sales.id] || 1;
+                const isSalesExpanded = expandedSalesId === `sales-${sales.id}`;
                 
                 return (
                   <SalesCard
@@ -158,6 +246,10 @@ export function MentorMySales() {
                     handleCommentChange={handleCommentChange}
                     saveComment={saveComment}
                     weeklyData={weeklyData}
+                    targetData={targetData}
+                    getCurrentTarget={getCurrentTarget}
+                    isExpanded={isSalesExpanded}
+                    fetchTargetData={fetchTargetData}
                   />
                 );
               })}
