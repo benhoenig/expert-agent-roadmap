@@ -327,5 +327,88 @@ export const xanoService = {
       }
       throw error;
     }
+  },
+
+  // Mentor Dashboard - Sales Progress by Week
+  async getMentorDashboardSalesProgress(salesId: number, weekNumber: number) {
+    try {
+      console.log(`Fetching mentor dashboard sales progress for salesId: ${salesId}, week: ${weekNumber}...`);
+      const response = await xanoApi.get(`/mentor_dashboard_sales_progress?sales_id=${salesId}&week_number=${weekNumber}`);
+      console.log('Mentor dashboard sales progress data:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching mentor dashboard sales progress:', error);
+      throw error;
+    }
+  },
+
+  // Mentor Dashboard - Sales Target by Week
+  async getMentorDashboardSalesTarget(salesId: number, weekNumber: number) {
+    try {
+      console.log(`Fetching sales target for salesId: ${salesId}, week: ${weekNumber}...`);
+      const response = await xanoApi.get(`/mentor_dashboard_sales_progress/target`, {
+        params: {
+          sales_id: salesId,
+          week_number: weekNumber
+        }
+      });
+      console.log('Sales target data:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching sales target:', error);
+      throw error;
+    }
+  },
+
+  // Cached mentor ID to prevent excessive API calls
+  _cachedMentorId: null as number | null,
+
+  // Get current mentor ID from dashboard data
+  async getCurrentMentorId() {
+    try {
+      // Return cached mentor ID if available
+      if (this._cachedMentorId !== null) {
+        console.log('Using cached mentor ID:', this._cachedMentorId);
+        return this._cachedMentorId;
+      }
+      
+      // Fetch dashboard data which contains mentor information
+      const dashboardData = await this.getMentorDashboardSales();
+      
+      // Extract mentor ID from the response
+      if (dashboardData && dashboardData.mentor1 && dashboardData.mentor1.id) {
+        console.log('Current mentor ID:', dashboardData.mentor1.id);
+        // Cache the mentor ID for future use
+        this._cachedMentorId = dashboardData.mentor1.id;
+        return dashboardData.mentor1.id;
+      }
+      
+      // Log error if mentor ID is not found
+      console.error('Could not extract mentor ID from dashboard data');
+      throw new Error('Mentor ID not available');
+    } catch (error) {
+      console.error('Error getting current mentor ID:', error);
+      throw error;
+    }
+  },
+
+  // Update Mentor Dashboard Sales Target
+  async updateMentorDashboardSalesTarget(updateData: {
+    mentor_id: number;
+    sales_id: number;
+    week_number: number;
+    kpi_id?: number;
+    requirement_id?: number;
+    target_count: number;
+  }) {
+    try {
+      console.log('Updating sales target with data:', updateData);
+      const response = await xanoApi.post('/mentor_dashboard_sales_progress/target', updateData);
+      console.log('Update sales target response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating sales target:', error);
+      throw error;
+    }
   }
 }; 
