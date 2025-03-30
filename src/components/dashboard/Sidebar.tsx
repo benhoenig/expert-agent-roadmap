@@ -1,6 +1,5 @@
-
 import { NavLink, useNavigate } from "react-router-dom";
-import { User, Database, FileText, LogOut, X } from "lucide-react";
+import { User, Database, FileText, LogOut, X, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -27,6 +26,12 @@ export function Sidebar({ closeSidebar }: SidebarProps) {
       icon: User,
       path: "/dashboard",
       description: "User dashboard and profile"
+    },
+    {
+      title: "Mentor Sales",
+      icon: Users,
+      path: "/dashboard/mentor-sales",
+      description: "Manage mentor sales assignments"
     },
     {
       title: "Master Data",
@@ -79,6 +84,7 @@ export function Sidebar({ closeSidebar }: SidebarProps) {
                     ? "bg-gold-100 text-gold-900 font-medium" 
                     : "text-muted-foreground"
                 )}
+                end={item.path === "/dashboard"}
               >
                 <item.icon className="h-4 w-4" />
                 <span>{item.title}</span>
