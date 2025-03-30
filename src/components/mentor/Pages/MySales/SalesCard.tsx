@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,10 @@ interface SalesCardProps {
   handleCommentChange: (salesId: number, week: number, comment: string) => void;
   saveComment: (salesId: number, week: number) => void;
   weeklyData: Record<number, WeeklyPerformance[]>;
+  targetData: any[];
+  getCurrentTarget: (type: 'action' | 'skillset' | 'requirement', id: number, salesId?: number, weekNumber?: number) => number;
+  isExpanded: boolean;
+  fetchTargetData: (salesId: number, weekNumber: number, forceRefresh?: boolean) => Promise<void>;
 }
 
 export function SalesCard({
@@ -37,9 +42,41 @@ export function SalesCard({
   getCommentValue,
   handleCommentChange,
   saveComment,
-  weeklyData
+  weeklyData,
+  targetData,
+  getCurrentTarget,
+  isExpanded,
+  fetchTargetData
 }: SalesCardProps) {
   const salesUser = sales._user[0];
+  
+  // Track previous expanded state to avoid duplicate fetches
+  const prevExpandedRef = useRef(false);
+  
+  // Fetch target data when the accordion is expanded
+  useEffect(() => {
+    // Only fetch data if:
+    // 1. The accordion is newly expanded (wasn't expanded before)
+    // 2. The week has changed while expanded
+    const isNewlyExpanded = isExpanded && !prevExpandedRef.current;
+    
+    if (isExpanded) {
+      // Use setTimeout to debounce the API call and prevent rapid consecutive calls
+      const timerId = setTimeout(() => {
+        console.log(`SalesCard expanded for salesId=${sales.id}, weekNumber=${selectedWeek}, fetching target data`);
+        fetchTargetData(sales.id, selectedWeek);
+      }, 300);
+      
+      // Save current expanded state for next render
+      prevExpandedRef.current = isExpanded;
+      
+      // Clean up timeout if component unmounts or dependencies change
+      return () => clearTimeout(timerId);
+    } else {
+      // Update ref when accordion is collapsed
+      prevExpandedRef.current = false;
+    }
+  }, [isExpanded, sales.id, selectedWeek, fetchTargetData]);
   
   return (
     <AccordionItem 
@@ -70,64 +107,72 @@ export function SalesCard({
       </AccordionTrigger>
       
       <AccordionContent className="px-6 py-4 bg-card">
-        {/* Basic Info */}
-        <SalesHeader sales={sales} />
+        {/* Only render the expensive components when the accordion is expanded */}
+        {isExpanded && (
+          <>
+            {/* Basic Info */}
+            <SalesHeader sales={sales} />
 
-        {/* Week Selection */}
-        <WeekSelector 
-          salesId={sales.id}
-          selectedWeek={selectedWeek}
-          handleWeekChange={handleWeekChange}
-          handleOpenTargetDialog={handleOpenTargetDialog}
-        />
+            {/* Week Selection */}
+            <WeekSelector 
+              salesId={sales.id}
+              selectedWeek={selectedWeek}
+              handleWeekChange={handleWeekChange}
+              handleOpenTargetDialog={handleOpenTargetDialog}
+            />
 
-        {/* Weekly Progress Summary */}
-        <WeeklyProgress 
-          salesId={sales.id}
-          selectedWeek={selectedWeek}
-          salesProgressData={salesProgressData}
-          metadata={metadata}
-        />
+            {/* Weekly Progress Summary */}
+            <WeeklyProgress 
+              salesId={sales.id}
+              selectedWeek={selectedWeek}
+              salesProgressData={salesProgressData}
+              metadata={metadata}
+            />
 
-        {/* KPI and Actions */}
-        <KPISection 
-          salesId={sales.id}
-          selectedWeek={selectedWeek}
-          metadata={metadata}
-          salesProgressData={salesProgressData}
-          isProgressLoading={isProgressLoading}
-        />
+            {/* KPI and Actions */}
+            <KPISection 
+              salesId={sales.id}
+              selectedWeek={selectedWeek}
+              metadata={metadata}
+              salesProgressData={salesProgressData}
+              isProgressLoading={isProgressLoading}
+              getCurrentTarget={getCurrentTarget}
+            />
 
-        {/* Skillsets */}
-        <SkillsetSection 
-          salesId={sales.id}
-          selectedWeek={selectedWeek}
-          metadata={metadata}
-          salesProgressData={salesProgressData}
-          isProgressLoading={isProgressLoading}
-        />
+            {/* Skillsets */}
+            <SkillsetSection 
+              salesId={sales.id}
+              selectedWeek={selectedWeek}
+              metadata={metadata}
+              salesProgressData={salesProgressData}
+              isProgressLoading={isProgressLoading}
+              getCurrentTarget={getCurrentTarget}
+            />
 
-        {/* Requirements */}
-        <RequirementsSection 
-          salesId={sales.id}
-          selectedWeek={selectedWeek}
-          metadata={metadata}
-          salesProgressData={salesProgressData}
-          isProgressLoading={isProgressLoading}
-        />
+            {/* Requirements */}
+            <RequirementsSection 
+              salesId={sales.id}
+              selectedWeek={selectedWeek}
+              metadata={metadata}
+              salesProgressData={salesProgressData}
+              isProgressLoading={isProgressLoading}
+              getCurrentTarget={getCurrentTarget}
+            />
 
-        {/* Code of Honor */}
-        <CodeOfHonorSection />
+            {/* Code of Honor */}
+            <CodeOfHonorSection />
 
-        {/* Mentor Comment */}
-        <CommentSection 
-          salesId={sales.id}
-          selectedWeek={selectedWeek}
-          getCommentValue={getCommentValue}
-          handleCommentChange={handleCommentChange}
-          saveComment={saveComment}
-          weeklyData={weeklyData}
-        />
+            {/* Mentor Comment */}
+            <CommentSection 
+              salesId={sales.id}
+              selectedWeek={selectedWeek}
+              getCommentValue={getCommentValue}
+              handleCommentChange={handleCommentChange}
+              saveComment={saveComment}
+              weeklyData={weeklyData}
+            />
+          </>
+        )}
       </AccordionContent>
     </AccordionItem>
   );
