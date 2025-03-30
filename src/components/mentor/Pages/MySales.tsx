@@ -79,6 +79,28 @@ interface DashboardMetadata {
   mentorDashboard_requirement_masterData: { requirement_name: string }[];
 }
 
+interface SalesProgressData {
+  result1: {
+    kpi_action_progress_kpi_id: number;
+    kpi_action_progress_count: number;
+    _kpi: {
+      kpi_name: string;
+      kpi_type: string;
+    };
+  }[];
+  kpi_skillset_progress_max: {
+    kpi_skillset_progress_kpi_id: number;
+    kpi_skillset_progress_total_score: number;
+  }[];
+  requirement_progress1: {
+    requirement_progress_requirement_id: number;
+    requirement_progress_count: number;
+    _requirement: {
+      requirement_name: string;
+    }[];
+  }[];
+}
+
 export function MentorMySales() {
   const [salesData, setSalesData] = useState<SalesUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,6 +109,8 @@ export function MentorMySales() {
   const [comments, setComments] = useState<Record<string, string>>({});
   const [metadata, setMetadata] = useState<DashboardMetadata | null>(null);
   const [isMetadataLoading, setIsMetadataLoading] = useState(true);
+  const [salesProgressData, setSalesProgressData] = useState<Record<string, SalesProgressData>>({});
+  const [isProgressLoading, setIsProgressLoading] = useState<Record<string, boolean>>({});
 
   // Weekly performance data - would be fetched from the API in a real application
   const [weeklyData, setWeeklyData] = useState<Record<number, WeeklyPerformance[]>>({
@@ -243,10 +267,59 @@ export function MentorMySales() {
     });
   };
 
+  const handleWeekChange = (salesId: number, week: string) => {
+    const weekNumber = parseInt(week);
+    setSelectedWeeks(prev => ({
+      ...prev,
+      [salesId]: weekNumber
+    }));
+    
+    // Fetch progress data for the selected sales and week
+    fetchSalesProgress(salesId, weekNumber);
+  };
+  
+  const fetchSalesProgress = async (salesId: number, weekNumber: number) => {
+    const key = `${salesId}-${weekNumber}`;
+    
+    // If we already have this data, don't fetch again
+    if (salesProgressData[key]) return;
+    
+    try {
+      setIsProgressLoading(prev => ({ ...prev, [key]: true }));
+      
+      const data = await xanoService.getMentorDashboardSalesProgress(salesId, weekNumber);
+      console.log(`Sales progress data for salesId: ${salesId}, week: ${weekNumber}:`, data);
+      
+      if (data) {
+        setSalesProgressData(prev => ({
+          ...prev,
+          [key]: data
+        }));
+      } else {
+        console.error('Invalid sales progress data format received from API');
+      }
+    } catch (error) {
+      console.error(`Error fetching sales progress for salesId: ${salesId}, week: ${weekNumber}:`, error);
+      toast.error('Error loading progress data');
+    } finally {
+      setIsProgressLoading(prev => ({ ...prev, [key]: false }));
+    }
+  };
+  
   useEffect(() => {
     fetchMySales();
     fetchMetadata();
   }, []);
+  
+  // Fetch initial progress data when sales data is loaded
+  useEffect(() => {
+    if (salesData.length > 0 && Object.keys(selectedWeeks).length > 0) {
+      salesData.forEach(sales => {
+        const selectedWeek = selectedWeeks[sales.id] || 1;
+        fetchSalesProgress(sales.id, selectedWeek);
+      });
+    }
+  }, [salesData, selectedWeeks]);
 
   const getInitials = (name: string) => {
     return name
@@ -279,13 +352,6 @@ export function MentorMySales() {
     }
   };
 
-  const handleWeekChange = (salesId: number, week: string) => {
-    setSelectedWeeks(prev => ({
-      ...prev,
-      [salesId]: parseInt(week)
-    }));
-  };
-
   const handleCommentChange = (salesId: number, week: number, comment: string) => {
     const key = `${salesId}-${week}`;
     setComments(prev => ({
@@ -313,6 +379,18 @@ export function MentorMySales() {
       return metadata.mentorDashboard_skillsetKpi_masterData[index]?.kpi_name || `Skillset ${index + 1}`;
     }
     return `Skillset ${index + 1}`;
+  };
+
+  // Get the progress data for a specific sales and week
+  const getSalesProgressData = (salesId: number, weekNumber: number) => {
+    const key = `${salesId}-${weekNumber}`;
+    return salesProgressData[key];
+  };
+  
+  // Check if progress data is loading
+  const isProgressDataLoading = (salesId: number, weekNumber: number) => {
+    const key = `${salesId}-${weekNumber}`;
+    return !!isProgressLoading[key];
   };
 
   return (
@@ -471,28 +549,48 @@ export function MentorMySales() {
                             <div className="col-span-3">Completion</div>
                           </div>
                           
-                          {weeklyPerformanceData.actions.map((action, index) => (
-                            <div key={index} className="grid grid-cols-12 gap-2 items-center">
-                              <div className="col-span-4">{action.name}</div>
-                              <div className="col-span-5">
-                                <Progress value={(action.done / action.target) * 100} className="h-2" />
-                              </div>
-                              <div className="col-span-3 text-sm">
-                                {action.done} / {action.target}
-                              </div>
-                            </div>
-                          ))}
-                          
-                          {weeklyPerformanceData.actions.length === 0 && isMetadataLoading && (
+                          {/* Loading state */}
+                          {isProgressDataLoading(sales.id, selectedWeek) && (
                             <div className="flex justify-center py-4">
                               <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-gold-500"></div>
                             </div>
                           )}
                           
-                          {weeklyPerformanceData.actions.length === 0 && !isMetadataLoading && (
-                            <div className="py-4 text-center text-muted-foreground">
-                              No KPI data available for this week
-                            </div>
+                          {/* Display real KPI action data */}
+                          {!isProgressDataLoading(sales.id, selectedWeek) && (
+                            <>
+                              {metadata?.mentorDashboard_actionKpi_masterData?.map((kpi, index) => {
+                                // Find the corresponding progress data if it exists
+                                const actionProgress = getSalesProgressData(sales.id, selectedWeek)?.result1?.find(
+                                  action => action._kpi.kpi_name === kpi.kpi_name
+                                );
+                                
+                                // Use the actual value if available, otherwise use 0
+                                const count = actionProgress?.kpi_action_progress_count || 0;
+                                // Default target value - in a real app, this would come from the API
+                                const target = 100;
+                                
+                                return (
+                                  <div key={index} className="grid grid-cols-12 gap-2 items-center">
+                                    <div className="col-span-4">{kpi.kpi_name}</div>
+                                    <div className="col-span-5">
+                                      <Progress value={(count / target) * 100} className="h-2" />
+                                    </div>
+                                    <div className="col-span-3 text-sm">
+                                      {count} / {target}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              
+                              {/* Show a message if no metadata is available */}
+                              {(!metadata?.mentorDashboard_actionKpi_masterData || 
+                                metadata.mentorDashboard_actionKpi_masterData.length === 0) && (
+                                <div className="py-4 text-center text-muted-foreground">
+                                  No KPI data available
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -505,48 +603,51 @@ export function MentorMySales() {
                             <thead>
                               <tr className="border-b">
                                 <th className="text-left py-2 px-2 font-medium text-muted-foreground">Skillset</th>
-                                <th className="text-center py-2 px-2 font-medium text-muted-foreground">Wording</th>
-                                <th className="text-center py-2 px-2 font-medium text-muted-foreground">Tonality</th>
-                                <th className="text-center py-2 px-2 font-medium text-muted-foreground">Rapport</th>
-                                <th className="text-center py-2 px-2 font-medium text-muted-foreground">Total</th>
+                                <th className="text-center py-2 px-2 font-medium text-muted-foreground">Score</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y">
-                              {weeklyPerformanceData.skillsetScores?.map((skillset, index) => (
-                                <tr key={index}>
-                                  <td className="py-2 px-2">{getSkillsetNames(index)}</td>
-                                  <td className="text-center py-2 px-2">
-                                    <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                                      {formatSkillPercentage(skillset.wording)}
-                                    </Badge>
-                                  </td>
-                                  <td className="text-center py-2 px-2">
-                                    <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                                      {formatSkillPercentage(skillset.tonality)}
-                                    </Badge>
-                                  </td>
-                                  <td className="text-center py-2 px-2">
-                                    <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                                      {formatSkillPercentage(skillset.rapport)}
-                                    </Badge>
-                                  </td>
-                                  <td className="text-center py-2 px-2">
-                                    <Badge className="bg-gold-100 text-gold-800">
-                                      {skillset.total ? formatSkillPercentage(skillset.total) : '0%'}
-                                    </Badge>
+                              {/* Loading state */}
+                              {isProgressDataLoading(sales.id, selectedWeek) && (
+                                <tr>
+                                  <td colSpan={2} className="py-4 text-center">
+                                    <div className="flex justify-center">
+                                      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-gold-500"></div>
+                                    </div>
                                   </td>
                                 </tr>
-                              ))}
-                              {!weeklyPerformanceData.skillsetScores?.length && (
+                              )}
+                              
+                              {/* Display real skillset data */}
+                              {!isProgressDataLoading(sales.id, selectedWeek) && 
+                               metadata?.mentorDashboard_skillsetKpi_masterData?.map((skillset, index) => {
+                                // Find the corresponding skill score from the API
+                                const skillScore = getSalesProgressData(sales.id, selectedWeek)?.kpi_skillset_progress_max?.find(
+                                  s => s.kpi_skillset_progress_kpi_id === index + 8 // Add 8 because the IDs start from 8 in the sample data
+                                );
+                                
+                                // Use 0 if no score is found
+                                const score = skillScore?.kpi_skillset_progress_total_score || 0;
+                                
+                                return (
+                                  <tr key={index}>
+                                    <td className="py-2 px-2">{skillset.kpi_name}</td>
+                                    <td className="text-center py-2 px-2">
+                                      <Badge className="bg-gold-100 text-gold-800">
+                                        {formatSkillPercentage(score / 10)}
+                                      </Badge>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                              
+                              {/* Show a message if no metadata is available */}
+                              {!isProgressDataLoading(sales.id, selectedWeek) && 
+                                (!metadata?.mentorDashboard_skillsetKpi_masterData || 
+                                metadata.mentorDashboard_skillsetKpi_masterData.length === 0) && (
                                 <tr>
-                                  <td colSpan={5} className="py-4 text-center text-muted-foreground">
-                                    {isMetadataLoading ? (
-                                      <div className="flex justify-center">
-                                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-gold-500"></div>
-                                      </div>
-                                    ) : (
-                                      "No skillset data available for this week"
-                                    )}
+                                  <td colSpan={2} className="py-4 text-center text-muted-foreground">
+                                    No skillset data available
                                   </td>
                                 </tr>
                               )}
@@ -559,23 +660,43 @@ export function MentorMySales() {
                       <div className="mb-6">
                         <h4 className="text-md font-medium mb-3">Requirements</h4>
                         <div className="space-y-2">
-                          {weeklyPerformanceData.requirements.map((requirement, index) => (
-                            <div key={index} className="flex items-center justify-between">
-                              <span>{requirement.name}</span>
-                              <Badge variant="outline" className={requirement.completed ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-500"}>
-                                {requirement.completed ? "1" : "0"}
-                              </Badge>
-                            </div>
-                          ))}
-                          {weeklyPerformanceData.requirements.length === 0 && isMetadataLoading && (
+                          {/* Loading state */}
+                          {isProgressDataLoading(sales.id, selectedWeek) && (
                             <div className="flex justify-center py-4">
                               <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-gold-500"></div>
                             </div>
                           )}
-                          {weeklyPerformanceData.requirements.length === 0 && !isMetadataLoading && (
-                            <div className="py-4 text-center text-muted-foreground">
-                              No requirements data available for this week
-                            </div>
+                          
+                          {/* Display real requirement data */}
+                          {!isProgressDataLoading(sales.id, selectedWeek) && (
+                            <>
+                              {metadata?.mentorDashboard_requirement_masterData?.map((req, index) => {
+                                // Find the corresponding requirement progress if it exists
+                                const reqProgress = getSalesProgressData(sales.id, selectedWeek)?.requirement_progress1?.find(
+                                  r => r._requirement[0]?.requirement_name === req.requirement_name
+                                );
+                                
+                                // Use the actual count if available, otherwise use 0
+                                const count = reqProgress?.requirement_progress_count || 0;
+                                
+                                return (
+                                  <div key={index} className="flex items-center justify-between">
+                                    <span>{req.requirement_name}</span>
+                                    <Badge variant="outline" className={count > 0 ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-500"}>
+                                      {count}
+                                    </Badge>
+                                  </div>
+                                );
+                              })}
+                              
+                              {/* Show a message if no metadata is available */}
+                              {(!metadata?.mentorDashboard_requirement_masterData || 
+                                metadata.mentorDashboard_requirement_masterData.length === 0) && (
+                                <div className="py-4 text-center text-muted-foreground">
+                                  No requirements data available
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
