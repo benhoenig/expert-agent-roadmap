@@ -310,5 +310,22 @@ export const xanoService = {
       }
       throw error;
     }
+  },
+
+  // Mentor Dashboard - Metadata (KPIs, Skillsets, Requirements)
+  async getMentorDashboardMetadata() {
+    try {
+      console.log('Fetching mentor dashboard metadata...');
+      const response = await xanoApi.get('/mentor_dashboard_metadata');
+      console.log('Mentor dashboard metadata response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching mentor dashboard metadata:', error);
+      if (error.response) {
+        console.error('Error response data:', error.response.data);
+        console.error('Error response status:', error.response.status);
+      }
+      throw error;
+    }
   }
 }; 
