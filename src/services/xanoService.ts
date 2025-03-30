@@ -295,69 +295,104 @@ export const xanoService = {
     }
   },
 
-  // Mentor Dashboard - My Sales
-  async getMentorDashboardSales() {
+  // Helper method to implement timeout on promises
+  _fetchWithTimeout: async function(promise, timeoutMs = 20000) {
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error('Request timed out'));
+      }, timeoutMs);
+    });
+
     try {
-      console.log('Fetching mentor dashboard sales data...');
-      const response = await xanoApi.get('/mentor_dashboard_sales');
-      console.log('Mentor dashboard sales response:', response.data);
-      return response.data;
-    } catch (error: any) {
-      console.error('Error fetching mentor dashboard sales:', error);
-      if (error.response) {
-        console.error('Error response data:', error.response.data);
-        console.error('Error response status:', error.response.status);
-      }
+      const result = await Promise.race([promise, timeoutPromise]);
+      clearTimeout(timeoutId);
+      return result;
+    } catch (error) {
+      clearTimeout(timeoutId);
       throw error;
     }
+  },
+
+  // Helper method to implement retries on API calls
+  _fetchWithRetry: async function(apiCall, maxRetries = 2, retryDelay = 1000) {
+    let lastError;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        // Use timeout for each attempt
+        return await this._fetchWithTimeout(apiCall());
+      } catch (error) {
+        lastError = error;
+        console.error(`Attempt ${attempt + 1}/${maxRetries + 1} failed:`, error);
+        
+        // Don't retry on 4xx errors other than 429 (rate limit)
+        if (error.response && error.response.status >= 400 && error.response.status < 500 && error.response.status !== 429) {
+          throw error;
+        }
+        
+        // If this wasn't the last attempt, wait before retrying
+        if (attempt < maxRetries) {
+          console.log(`Retrying in ${retryDelay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          
+          // Increase delay for next retry (exponential backoff)
+          retryDelay *= 2;
+        }
+      }
+    }
+    
+    // If we got here, we exhausted all retries
+    throw lastError;
+  },
+
+  // Mentor Dashboard - Sales Data
+  async getMentorDashboardSales() {
+    return this._fetchWithRetry(() => {
+      console.log('Fetching mentor dashboard sales data...');
+      return xanoApi.get('/mentor_dashboard_sales').then(response => {
+        console.log('Mentor dashboard sales response:', response.data);
+        return response.data;
+      });
+    });
   },
 
   // Mentor Dashboard - Metadata (KPIs, Skillsets, Requirements)
   async getMentorDashboardMetadata() {
-    try {
+    return this._fetchWithRetry(() => {
       console.log('Fetching mentor dashboard metadata...');
-      const response = await xanoApi.get('/mentor_dashboard_metadata');
-      console.log('Mentor dashboard metadata response:', response.data);
-      return response.data;
-    } catch (error: any) {
-      console.error('Error fetching mentor dashboard metadata:', error);
-      if (error.response) {
-        console.error('Error response data:', error.response.data);
-        console.error('Error response status:', error.response.status);
-      }
-      throw error;
-    }
+      return xanoApi.get('/mentor_dashboard_metadata').then(response => {
+        console.log('Mentor dashboard metadata response:', response.data);
+        return response.data;
+      });
+    });
   },
 
   // Mentor Dashboard - Sales Progress by Week
   async getMentorDashboardSalesProgress(salesId: number, weekNumber: number) {
-    try {
+    return this._fetchWithRetry(() => {
       console.log(`Fetching mentor dashboard sales progress for salesId: ${salesId}, week: ${weekNumber}...`);
-      const response = await xanoApi.get(`/mentor_dashboard_sales_progress?sales_id=${salesId}&week_number=${weekNumber}`);
-      console.log('Mentor dashboard sales progress data:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching mentor dashboard sales progress:', error);
-      throw error;
-    }
+      return xanoApi.get(`/mentor_dashboard_sales_progress?sales_id=${salesId}&week_number=${weekNumber}`).then(response => {
+        console.log('Mentor dashboard sales progress data:', response.data);
+        return response.data;
+      });
+    });
   },
 
   // Mentor Dashboard - Sales Target by Week
   async getMentorDashboardSalesTarget(salesId: number, weekNumber: number) {
-    try {
+    return this._fetchWithRetry(() => {
       console.log(`Fetching sales target for salesId: ${salesId}, week: ${weekNumber}...`);
-      const response = await xanoApi.get(`/mentor_dashboard_sales_progress/target`, {
+      return xanoApi.get(`/mentor_dashboard_sales_progress/target`, {
         params: {
           sales_id: salesId,
           week_number: weekNumber
         }
+      }).then(response => {
+        console.log('Sales target data:', response.data);
+        return response.data;
       });
-      console.log('Sales target data:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching sales target:', error);
-      throw error;
-    }
+    });
   },
 
   // Cached mentor ID to prevent excessive API calls
@@ -401,14 +436,25 @@ export const xanoService = {
     requirement_id?: number;
     target_count: number;
   }) {
-    try {
+    return this._fetchWithRetry(() => {
       console.log('Updating sales target with data:', updateData);
-      const response = await xanoApi.post('/mentor_dashboard_sales_progress/target', updateData);
-      console.log('Update sales target response:', response.data);
+      return xanoApi.post('/mentor_dashboard_sales_progress/target', updateData).then(response => {
+        console.log('Update sales target response:', response.data);
+        return response.data;
+      });
+    });
+  },
+
+  // Get current sales user data from /sales_interface endpoint
+  getSalesInterface: async () => {
+    try {
+      console.log('Fetching sales interface data for current user...');
+      const response = await xanoApi.get('/sales_interface');
+      console.log('Sales interface data:', response.data);
       return response.data;
     } catch (error) {
-      console.error('Error updating sales target:', error);
+      console.error('Error fetching sales interface data:', error);
       throw error;
     }
-  }
+  },
 }; 
