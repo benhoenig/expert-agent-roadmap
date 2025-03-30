@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { DashboardMetadata, SalesProgressData } from "./types";
 import { isProgressDataLoading, getSalesProgressData } from "./utils";
@@ -8,6 +9,7 @@ interface RequirementsSectionProps {
   metadata: DashboardMetadata | null;
   salesProgressData: Record<string, SalesProgressData>;
   isProgressLoading: Record<string, boolean>;
+  getCurrentTarget: (type: 'action' | 'skillset' | 'requirement', id: number, salesId?: number, weekNumber?: number) => number;
 }
 
 export function RequirementsSection({
@@ -15,58 +17,76 @@ export function RequirementsSection({
   selectedWeek,
   metadata,
   salesProgressData,
-  isProgressLoading
+  isProgressLoading,
+  getCurrentTarget
 }: RequirementsSectionProps) {
   const loading = isProgressDataLoading(salesId, selectedWeek, isProgressLoading);
+
+  // Use useMemo to prevent redundant calculations and renders
+  const requirementsContent = useMemo(() => {
+    if (loading) {
+      return (
+        <div className="flex justify-center py-4">
+          <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-gold-500"></div>
+        </div>
+      );
+    }
+
+    if (!metadata?.mentorDashboard_requirement_masterData || 
+        metadata.mentorDashboard_requirement_masterData.length === 0) {
+      return (
+        <div className="py-4 text-center text-muted-foreground">
+          No requirements data available
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {metadata.mentorDashboard_requirement_masterData.map((req, index) => {
+          // Find the corresponding requirement progress if it exists
+          const reqProgress = getSalesProgressData(salesId, selectedWeek, salesProgressData)?.requirement_progress1?.find(
+            r => r._requirement[0]?.requirement_name === req.requirement_name
+          );
+          
+          // Use the actual count if available, otherwise use 0
+          const count = reqProgress?.requirement_progress_count || 0;
+          
+          // Get target value from getCurrentTarget
+          // We need to find the correct requirement ID
+          const requirementId = reqProgress?.requirement_progress_requirement_id || index + 1; // Add 1 because API IDs start at 1
+          
+          // Since getCurrentTarget already adds 1 to the ID, we need to subtract 1 here
+          const target = getCurrentTarget('requirement', requirementId - 1, salesId, selectedWeek);
+          const hasTarget = target > 0;
+          const isCompleted = hasTarget ? count >= target : count > 0;
+          
+          return (
+            <div key={index} className="flex items-center justify-between">
+              <span>{req.requirement_name}</span>
+              <div className="flex items-center gap-2">
+                <Badge 
+                  variant="outline" 
+                  className={isCompleted ? "bg-green-100 text-green-800" : "bg-gold-100 text-gold-800"}
+                >
+                  {count}
+                </Badge>
+                <span className="text-muted-foreground text-sm">
+                  {hasTarget ? `/${target}` : '/ N/A'}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </>
+    );
+  }, [loading, metadata, salesId, selectedWeek, salesProgressData, getCurrentTarget]);
 
   return (
     <div className="mb-6">
       <h4 className="text-md font-medium mb-3">Requirements</h4>
       <div className="space-y-2">
-        {/* Loading state */}
-        {loading && (
-          <div className="flex justify-center py-4">
-            <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-gold-500"></div>
-          </div>
-        )}
-        
-        {/* Display real requirement data */}
-        {!loading && (
-          <>
-            {metadata?.mentorDashboard_requirement_masterData?.map((req, index) => {
-              // Find the corresponding requirement progress if it exists
-              const reqProgress = getSalesProgressData(salesId, selectedWeek, salesProgressData)?.requirement_progress1?.find(
-                r => r._requirement[0]?.requirement_name === req.requirement_name
-              );
-              
-              // Use the actual count if available, otherwise use 0
-              const count = reqProgress?.requirement_progress_count || 0;
-              // For demo, use 1 as the mock target to show the color change logic
-              const mockTarget = 1;
-              const isTargetMet = count >= mockTarget;
-              
-              return (
-                <div key={index} className="flex items-center justify-between">
-                  <span>{req.requirement_name}</span>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className={isTargetMet ? "bg-green-100 text-green-800" : "bg-gold-100 text-gold-800"}>
-                      {count}
-                    </Badge>
-                    <span className="text-muted-foreground text-sm">/ N/A</span>
-                  </div>
-                </div>
-              );
-            })}
-            
-            {/* Show a message if no metadata is available */}
-            {(!metadata?.mentorDashboard_requirement_masterData || 
-              metadata.mentorDashboard_requirement_masterData.length === 0) && (
-              <div className="py-4 text-center text-muted-foreground">
-                No requirements data available
-              </div>
-            )}
-          </>
-        )}
+        {requirementsContent}
       </div>
     </div>
   );
