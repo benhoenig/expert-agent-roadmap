@@ -18,7 +18,7 @@ export function MonthlyAccordion({ months, className }: MonthlyAccordionProps) {
       <Accordion type="single" collapsible className="w-full">
         {months.map((month, index) => (
           <AccordionItem key={index} value={`month-${index}`} className="border-b-0 last:border-0">
-            <AccordionTrigger className="py-3 hover:no-underline">
+            <AccordionTrigger className="py-3 px-4 hover:no-underline">
               <div className="flex items-center">
                 <CalendarDays className="mr-2 h-4 w-4 text-muted-foreground" />
                 <span>{month.month}</span>
