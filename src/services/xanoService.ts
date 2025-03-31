@@ -476,7 +476,7 @@ export const xanoService = {
       return xanoApi.get('/sales_interface_progress/target', {
         params: {
           sales_id: salesId,
-          week_number: weekNumber
+          week_number: weekNumber 
         }
       }).then(response => {
         console.log('Sales interface target response:', response.data);
@@ -484,4 +484,42 @@ export const xanoService = {
       });
     });
   },
+  
+  // Get sales interface progress with filtered skillset data
+  getSalesInterfaceProgress: async (salesId: number, weekNumber: number) => {
+    return xanoService._fetchWithRetry(() => {
+      console.log(`Fetching sales interface progress for sales ID: ${salesId}, week: ${weekNumber}...`);
+      return xanoApi.get('/sales_interface_progress', {
+        params: {
+          sales_id: salesId,
+          week_number: weekNumber 
+        }
+      }).then(response => {
+        console.log('Raw sales interface progress response:', response.data);
+        
+        // Filter skillset data to get only the latest entry for each kpi_id
+        if (response.data && response.data.kpi_skillset_progress1 && Array.isArray(response.data.kpi_skillset_progress1)) {
+          // Create a map to store the latest entry for each kpi_id
+          const latestSkillsetMap = new Map();
+          
+          // Process each skillset record
+          response.data.kpi_skillset_progress1.forEach(record => {
+            const kpiId = record.kpi_id;
+            
+            // If we haven't seen this kpi_id before, or if this record is newer
+            if (!latestSkillsetMap.has(kpiId) || 
+                record.created_at > latestSkillsetMap.get(kpiId).created_at) {
+              latestSkillsetMap.set(kpiId, record);
+            }
+          });
+          
+          // Replace the original skillset array with our filtered one
+          response.data.kpi_skillset_progress1 = Array.from(latestSkillsetMap.values());
+          console.log('Filtered sales interface progress data:', response.data);
+        }
+        
+        return response.data;
+      });
+    });
+  }
 }; 

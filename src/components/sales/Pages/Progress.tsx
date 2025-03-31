@@ -1,5 +1,5 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { CircularProgress } from "@/components/ui/circular-progress";
 import { MonthlyAccordion, MonthData } from "@/components/ui/monthly-accordion";
 import { Accordion } from "@/components/ui/accordion";
@@ -42,29 +42,102 @@ export function SalesProgress() {
   const [openAccordion, setOpenAccordion] = useState<string | null>(null);
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
   const [targetData, setTargetData] = useState<Record<number, any[]>>({});
+  const [progressData, setProgressData] = useState<Record<number, any>>({});
   const [currentSalesId, setCurrentSalesId] = useState<number | null>(null);
   const [isLoadingUserData, setIsLoadingUserData] = useState(false);
+  const [isLoadingProgressData, setIsLoadingProgressData] = useState<Record<number, boolean>>({});
+
+  // Using useMemo to create and memoize these arrays to prevent unnecessary rerenders
+  const month1Weeks = useMemo(() => [1, 2, 3, 4], []);
+  const month2Weeks = useMemo(() => [5, 6, 7, 8], []);
+  const month3Weeks = useMemo(() => [9, 10, 11, 12], []);
+
+  // Function to load target data for a specific week
+  const loadTargetData = useCallback(async (weekNumber: number) => {
+    if (!currentSalesId) return; // Don't load if no sales ID
+    
+    try {
+      console.log(`Fetching target data for sales ID: ${currentSalesId}, week number: ${weekNumber}`);
+      
+      const response = await xanoService.getSalesInterfaceTarget(currentSalesId, weekNumber);
+      console.log(`Received target data for week ${weekNumber}:`, response);
+      
+      if (Array.isArray(response) && response.length > 0) {
+        setTargetData(prev => ({
+          ...prev,
+          [weekNumber]: response
+        }));
+      } else {
+        console.warn(`No target data received for week ${weekNumber} or invalid format`);
+        // Don't clear existing data if no new data received
+      }
+    } catch (error) {
+      console.error(`Error loading target data for week ${weekNumber}:`, error);
+      toast.error(`Failed to load targets for week ${weekNumber}`);
+      // Don't clear existing data on error
+    }
+  }, [currentSalesId]);
+  
+  // Function to load progress data for a specific week
+  const loadProgressData = useCallback(async (weekNumber: number) => {
+    if (!currentSalesId) return; // Don't load if no sales ID
+    
+    // Set loading state for this specific week
+    setIsLoadingProgressData(prev => ({
+      ...prev,
+      [weekNumber]: true
+    }));
+    
+    try {
+      console.log(`Fetching progress data for sales ID: ${currentSalesId}, week number: ${weekNumber}`);
+      
+      const response = await xanoService.getSalesInterfaceProgress(currentSalesId, weekNumber);
+      console.log(`Received progress data for week ${weekNumber}:`, response);
+      
+      if (response) {
+        setProgressData(prev => ({
+          ...prev,
+          [weekNumber]: response
+        }));
+      } else {
+        console.warn(`No progress data received for week ${weekNumber} or invalid format`);
+      }
+    } catch (error) {
+      console.error(`Error loading progress data for week ${weekNumber}:`, error);
+      toast.error(`Failed to load progress for week ${weekNumber}`);
+    } finally {
+      // Clear loading state regardless of success or failure
+      setIsLoadingProgressData(prev => ({
+        ...prev,
+        [weekNumber]: false
+      }));
+    }
+  }, [currentSalesId]);
 
   // Get current user data including sales ID
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
         setIsLoadingUserData(true);
-        const userData = await xanoService.getUserData();
-        // Assuming the user data contains the sales ID
-        if (userData && userData.id) {
-          setCurrentSalesId(userData.id);
+        const salesData = await xanoService.getSalesInterface();
+        console.log("Sales interface data:", salesData);
+        if (salesData && salesData.id) {
+          setCurrentSalesId(salesData.id);
+          // Load target data for Week 1 when we get the sales ID
+          loadTargetData(1);
+          // Also load progress data for Week 1
+          loadProgressData(1);
         }
       } catch (error) {
-        console.error("Error fetching user data:", error);
-        toast.error("Failed to load user information");
+        console.error("Error fetching sales data:", error);
+        toast.error("Failed to load sales information");
       } finally {
         setIsLoadingUserData(false);
       }
     };
 
     fetchCurrentUser();
-  }, []);
+  }, [loadTargetData, loadProgressData]);
 
   // Load metadata only when needed (when a month accordion is expanded)
   const loadMetadata = useCallback(async () => {
@@ -100,22 +173,6 @@ export function SalesProgress() {
     }
   }, [metadata, isLoadingMetadata]);
 
-  // Function to load target data for a specific week
-  const loadTargetData = useCallback(async (weekNumber: number) => {
-    if (!currentSalesId || targetData[weekNumber]) return; // Don't load if no sales ID or already loaded
-    
-    try {
-      const response = await xanoService.getSalesInterfaceTarget(currentSalesId, weekNumber);
-      setTargetData(prev => ({
-        ...prev,
-        [weekNumber]: response
-      }));
-    } catch (error) {
-      console.error(`Error loading target data for week ${weekNumber}:`, error);
-      toast.error(`Failed to load targets for week ${weekNumber}`);
-    }
-  }, [currentSalesId, targetData]);
-
   // Function to handle month accordion expansion
   const handleMonthExpand = useCallback((value: string) => {
     if (!expandedMonth && value) {
@@ -132,21 +189,45 @@ export function SalesProgress() {
     
     // Load target data for this week if not already loaded
     loadTargetData(weekNumber);
-  }, [loadTargetData]);
+    
+    // Also load progress data for this week
+    loadProgressData(weekNumber);
+  }, [loadTargetData, loadProgressData]);
 
   // Handle accordion value changes directly
   const handleAccordionChange = (value: string | undefined) => {
     setOpenAccordion(value || null);
   };
 
-  // Generate week data with real targets if available
-  const generateWeekData = useCallback((weekNumber: number) => {
+  // Function that specifically creates week data for a specific week number
+  const createWeekDataForNumber = useCallback((weekNumber: number) => {
     const weekTargets = targetData[weekNumber] || [];
+    const weekProgress = progressData[weekNumber];
+    
+    // Extract the skillset data from the progress data if available
+    const skillsetData = weekProgress?.kpi_skillset_progress1 || [];
+    
+    // Only log on development if needed
+    // console.log(`Creating data for week ${weekNumber}, targets available:`, weekTargets.length > 0);
     
     return {
       isLoaded: true,
-      isLoading: false,
-      progressData: [
+      isLoading: isLoadingProgressData[weekNumber] || false,
+      progressData: weekProgress ? [
+        ...(weekProgress.result1 || []).map(kpi => ({ 
+          kpi_id: kpi.kpi_action_progress_kpi_id, 
+          requirement_id: 0, 
+          count: kpi.kpi_action_progress_count,
+          is_complete: kpi.kpi_action_progress_count > 0 
+        })),
+        ...(weekProgress.requirement_progress1 || []).map(req => ({ 
+          kpi_id: 0, 
+          requirement_id: req.requirement_progress_requirement_id, 
+          count: req.requirement_progress_count,
+          is_complete: req.requirement_progress_count > 0 
+        })),
+      ] : [
+        // Fallback mock data if no progress data is available
         { kpi_id: 1, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
         { kpi_id: 2, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
         { kpi_id: 3, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
@@ -159,153 +240,120 @@ export function SalesProgress() {
         { kpi_id: 0, requirement_id: 1, count: Math.random() > 0.5 ? 1 : 0, is_complete: Math.random() > 0.5 },
         { kpi_id: 0, requirement_id: 3, count: Math.random() > 0.5 ? 1 : 0, is_complete: Math.random() > 0.5 },
       ],
-      // Use real targets if available, otherwise use mock data
-      targetData: weekTargets.length > 0 ? weekTargets : [
-        { kpi_id: 1, requirement_id: 0, target_count: 20 },
-        { kpi_id: 2, requirement_id: 0, target_count: 20 },
-        { kpi_id: 3, requirement_id: 0, target_count: 50 },
-        { kpi_id: 4, requirement_id: 0, target_count: 50 },
-        { kpi_id: 5, requirement_id: 0, target_count: 50 },
-        { kpi_id: 6, requirement_id: 0, target_count: 50 },
-        { kpi_id: 8, requirement_id: 0, target_count: 95 },
-        { kpi_id: 9, requirement_id: 0, target_count: 95 },
-        { kpi_id: 10, requirement_id: 0, target_count: 70 },
-        { kpi_id: 0, requirement_id: 1, target_count: 1 },
-        { kpi_id: 0, requirement_id: 3, target_count: 1 },
-      ],
+      // Only use real targets, no mock data fallback
+      targetData: weekTargets,
+      // Include the skillset data directly
+      skillsetData: skillsetData,
       comment: `Week ${weekNumber} commentary goes here`
     };
-  }, [targetData]);
+  }, [targetData, progressData, isLoadingProgressData]);
 
-  // Example weekly data for Month 1 (weeks 1-4)
-  const generateMonth1Weeks = useCallback(() => {
-    return Array.from({ length: 4 }, (_, weekIdx) => {
-      const weekNumber = weekIdx + 1;
-      const basePercentage = 60;
-      const weekVariation = weekIdx * 5;
-      const progressPercentage = Math.min(Math.max(basePercentage + weekVariation, 0), 100);
-      
-      return {
-        weekNumber,
-        isCompleted: progressPercentage >= 100,
-        progressPercentage,
-        weekData: generateWeekData(weekNumber)
-      };
-    });
-  }, [generateWeekData]);
-
-  // Example weekly data for Month 2 (weeks 5-8)
-  const generateMonth2Weeks = useCallback(() => {
-    return Array.from({ length: 4 }, (_, weekIdx) => {
-      const weekNumber = weekIdx + 5; // Starting from week 5
-      const basePercentage = 70;
-      const weekVariation = weekIdx * 5;
-      const progressPercentage = Math.min(Math.max(basePercentage + weekVariation, 0), 100);
-      
-      return {
-        weekNumber,
-        isCompleted: progressPercentage >= 100,
-        progressPercentage,
-        weekData: generateWeekData(weekNumber)
-      };
-    });
-  }, [generateWeekData]);
-
-  // Example weekly data for Month 3 (weeks 9-12)
-  const generateMonth3Weeks = useCallback(() => {
-    return Array.from({ length: 4 }, (_, weekIdx) => {
-      const weekNumber = weekIdx + 9; // Starting from week 9
-      const basePercentage = 80;
-      const weekVariation = weekIdx * 5;
-      const progressPercentage = Math.min(Math.max(basePercentage + weekVariation, 0), 100);
-      
-      return {
-        weekNumber,
-        isCompleted: progressPercentage >= 100,
-        progressPercentage,
-        weekData: generateWeekData(weekNumber)
-      };
-    });
-  }, [generateWeekData]);
+  // Creating a specific week display object
+  const createWeekDisplay = useCallback((weekNumber: number) => {
+    const basePercentage = weekNumber <= 4 ? 60 : weekNumber <= 8 ? 70 : 80;
+    const weekInMonthIndex = (weekNumber - 1) % 4;
+    const weekVariation = weekInMonthIndex * 5;
+    const progressPercentage = Math.min(Math.max(basePercentage + weekVariation, 0), 100);
+    
+    return {
+      weekNumber,
+      isCompleted: progressPercentage >= 100,
+      progressPercentage,
+      weekData: createWeekDataForNumber(weekNumber)
+    };
+  }, [createWeekDataForNumber]);
 
   // Example monthly data with updated MonthlyAccordion props to handle expansion
-  const monthlyData: MonthData[] = [
-    {
-      month: "Month 1",
-      id: "month-0",
-      content: (
-        <div>
-          <div className="space-y-2">
-            <Accordion type="single" collapsible value={openAccordion} onValueChange={handleAccordionChange}>
-              {generateMonth1Weeks().map((week) => (
-                <WeekAccordion
-                  key={week.weekNumber}
-                  weekNumber={week.weekNumber}
-                  weekData={week.weekData}
-                  isCompleted={week.isCompleted}
-                  progressPercentage={week.progressPercentage}
-                  metadata={metadata}
-                  isMetadataLoaded={isMetadataLoaded}
-                  onExpand={handleWeekExpand}
-                  className=""
-                />
-              ))}
-            </Accordion>
+  const monthlyData: MonthData[] = useMemo(() => {
+    // Remove this log as well
+    // console.log("Creating monthly data with targetData:", targetData);
+    return [
+      {
+        month: "Month 1",
+        id: "month-0",
+        content: (
+          <div>
+            <div className="space-y-2">
+              <Accordion type="single" collapsible value={openAccordion} onValueChange={handleAccordionChange}>
+                {month1Weeks.map((weekNumber) => {
+                  const weekObj = createWeekDisplay(weekNumber);
+                  return (
+                    <WeekAccordion
+                      key={weekNumber}
+                      weekNumber={weekNumber}
+                      weekData={weekObj.weekData}
+                      isCompleted={weekObj.isCompleted}
+                      progressPercentage={weekObj.progressPercentage}
+                      metadata={metadata}
+                      isMetadataLoaded={isMetadataLoaded}
+                      onExpand={handleWeekExpand}
+                      className=""
+                    />
+                  );
+                })}
+              </Accordion>
+            </div>
           </div>
-        </div>
-      )
-    },
-    {
-      month: "Month 2",
-      id: "month-1",
-      content: (
-        <div>
-          <div className="space-y-2">
-            <Accordion type="single" collapsible value={openAccordion} onValueChange={handleAccordionChange}>
-              {generateMonth2Weeks().map((week) => (
-                <WeekAccordion
-                  key={week.weekNumber}
-                  weekNumber={week.weekNumber}
-                  weekData={week.weekData}
-                  isCompleted={week.isCompleted}
-                  progressPercentage={week.progressPercentage}
-                  metadata={metadata}
-                  isMetadataLoaded={isMetadataLoaded}
-                  onExpand={handleWeekExpand}
-                  className=""
-                />
-              ))}
-            </Accordion>
+        )
+      },
+      {
+        month: "Month 2",
+        id: "month-1",
+        content: (
+          <div>
+            <div className="space-y-2">
+              <Accordion type="single" collapsible value={openAccordion} onValueChange={handleAccordionChange}>
+                {month2Weeks.map((weekNumber) => {
+                  const weekObj = createWeekDisplay(weekNumber);
+                  return (
+                    <WeekAccordion
+                      key={weekNumber}
+                      weekNumber={weekNumber}
+                      weekData={weekObj.weekData}
+                      isCompleted={weekObj.isCompleted}
+                      progressPercentage={weekObj.progressPercentage}
+                      metadata={metadata}
+                      isMetadataLoaded={isMetadataLoaded}
+                      onExpand={handleWeekExpand}
+                      className=""
+                    />
+                  );
+                })}
+              </Accordion>
+            </div>
           </div>
-        </div>
-      )
-    },
-    {
-      month: "Month 3",
-      id: "month-2",
-      content: (
-        <div>
-          <div className="space-y-2">
-            <Accordion type="single" collapsible value={openAccordion} onValueChange={handleAccordionChange}>
-              {generateMonth3Weeks().map((week) => (
-                <WeekAccordion
-                  key={week.weekNumber}
-                  weekNumber={week.weekNumber}
-                  weekData={week.weekData}
-                  isCompleted={week.isCompleted}
-                  progressPercentage={week.progressPercentage}
-                  metadata={metadata}
-                  isMetadataLoaded={isMetadataLoaded}
-                  onExpand={handleWeekExpand}
-                  className=""
-                />
-              ))}
-            </Accordion>
+        )
+      },
+      {
+        month: "Month 3",
+        id: "month-2",
+        content: (
+          <div>
+            <div className="space-y-2">
+              <Accordion type="single" collapsible value={openAccordion} onValueChange={handleAccordionChange}>
+                {month3Weeks.map((weekNumber) => {
+                  const weekObj = createWeekDisplay(weekNumber);
+                  return (
+                    <WeekAccordion
+                      key={weekNumber}
+                      weekNumber={weekNumber}
+                      weekData={weekObj.weekData}
+                      isCompleted={weekObj.isCompleted}
+                      progressPercentage={weekObj.progressPercentage}
+                      metadata={metadata}
+                      isMetadataLoaded={isMetadataLoaded}
+                      onExpand={handleWeekExpand}
+                      className=""
+                    />
+                  );
+                })}
+              </Accordion>
+            </div>
           </div>
-        </div>
-      )
-    }
-  ];
+        )
+      }
+    ];
+  }, [openAccordion, handleAccordionChange, month1Weeks, month2Weeks, month3Weeks, createWeekDisplay, metadata, isMetadataLoaded, handleWeekExpand, targetData]);
 
   return (
     <div className="space-y-6">
