@@ -468,4 +468,20 @@ export const xanoService = {
       });
     });
   },
+  
+  // Get target data for sales interface progress
+  getSalesInterfaceTarget: async (salesId: number, weekNumber: number) => {
+    return xanoService._fetchWithRetry(() => {
+      console.log(`Fetching sales interface target for sales ID: ${salesId}, week: ${weekNumber}...`);
+      return xanoApi.get('/sales_interface_progress/target', {
+        params: {
+          sales_id: salesId,
+          week_number: weekNumber
+        }
+      }).then(response => {
+        console.log('Sales interface target response:', response.data);
+        return response.data;
+      });
+    });
+  },
 }; 

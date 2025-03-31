@@ -41,6 +41,30 @@ export function SalesProgress() {
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
   const [openAccordion, setOpenAccordion] = useState<string | null>(null);
   const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
+  const [targetData, setTargetData] = useState<Record<number, any[]>>({});
+  const [currentSalesId, setCurrentSalesId] = useState<number | null>(null);
+  const [isLoadingUserData, setIsLoadingUserData] = useState(false);
+
+  // Get current user data including sales ID
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        setIsLoadingUserData(true);
+        const userData = await xanoService.getUserData();
+        // Assuming the user data contains the sales ID
+        if (userData && userData.id) {
+          setCurrentSalesId(userData.id);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        toast.error("Failed to load user information");
+      } finally {
+        setIsLoadingUserData(false);
+      }
+    };
+
+    fetchCurrentUser();
+  }, []);
 
   // Load metadata only when needed (when a month accordion is expanded)
   const loadMetadata = useCallback(async () => {
@@ -76,6 +100,22 @@ export function SalesProgress() {
     }
   }, [metadata, isLoadingMetadata]);
 
+  // Function to load target data for a specific week
+  const loadTargetData = useCallback(async (weekNumber: number) => {
+    if (!currentSalesId || targetData[weekNumber]) return; // Don't load if no sales ID or already loaded
+    
+    try {
+      const response = await xanoService.getSalesInterfaceTarget(currentSalesId, weekNumber);
+      setTargetData(prev => ({
+        ...prev,
+        [weekNumber]: response
+      }));
+    } catch (error) {
+      console.error(`Error loading target data for week ${weekNumber}:`, error);
+      toast.error(`Failed to load targets for week ${weekNumber}`);
+    }
+  }, [currentSalesId, targetData]);
+
   // Function to handle month accordion expansion
   const handleMonthExpand = useCallback((value: string) => {
     if (!expandedMonth && value) {
@@ -85,8 +125,60 @@ export function SalesProgress() {
     setExpandedMonth(value);
   }, [expandedMonth, loadMetadata]);
 
+  // Handle accordion expansion
+  const handleWeekExpand = useCallback((weekNumber: number) => {
+    console.log(`Week ${weekNumber} expanded`);
+    setOpenAccordion(`week-${weekNumber}`);
+    
+    // Load target data for this week if not already loaded
+    loadTargetData(weekNumber);
+  }, [loadTargetData]);
+
+  // Handle accordion value changes directly
+  const handleAccordionChange = (value: string | undefined) => {
+    setOpenAccordion(value || null);
+  };
+
+  // Generate week data with real targets if available
+  const generateWeekData = useCallback((weekNumber: number) => {
+    const weekTargets = targetData[weekNumber] || [];
+    
+    return {
+      isLoaded: true,
+      isLoading: false,
+      progressData: [
+        { kpi_id: 1, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
+        { kpi_id: 2, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
+        { kpi_id: 3, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
+        { kpi_id: 4, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
+        { kpi_id: 5, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
+        { kpi_id: 6, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
+        { kpi_id: 8, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
+        { kpi_id: 9, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
+        { kpi_id: 10, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
+        { kpi_id: 0, requirement_id: 1, count: Math.random() > 0.5 ? 1 : 0, is_complete: Math.random() > 0.5 },
+        { kpi_id: 0, requirement_id: 3, count: Math.random() > 0.5 ? 1 : 0, is_complete: Math.random() > 0.5 },
+      ],
+      // Use real targets if available, otherwise use mock data
+      targetData: weekTargets.length > 0 ? weekTargets : [
+        { kpi_id: 1, requirement_id: 0, target_count: 20 },
+        { kpi_id: 2, requirement_id: 0, target_count: 20 },
+        { kpi_id: 3, requirement_id: 0, target_count: 50 },
+        { kpi_id: 4, requirement_id: 0, target_count: 50 },
+        { kpi_id: 5, requirement_id: 0, target_count: 50 },
+        { kpi_id: 6, requirement_id: 0, target_count: 50 },
+        { kpi_id: 8, requirement_id: 0, target_count: 95 },
+        { kpi_id: 9, requirement_id: 0, target_count: 95 },
+        { kpi_id: 10, requirement_id: 0, target_count: 70 },
+        { kpi_id: 0, requirement_id: 1, target_count: 1 },
+        { kpi_id: 0, requirement_id: 3, target_count: 1 },
+      ],
+      comment: `Week ${weekNumber} commentary goes here`
+    };
+  }, [targetData]);
+
   // Example weekly data for Month 1 (weeks 1-4)
-  const generateMonth1Weeks = () => {
+  const generateMonth1Weeks = useCallback(() => {
     return Array.from({ length: 4 }, (_, weekIdx) => {
       const weekNumber = weekIdx + 1;
       const basePercentage = 60;
@@ -100,10 +192,10 @@ export function SalesProgress() {
         weekData: generateWeekData(weekNumber)
       };
     });
-  };
+  }, [generateWeekData]);
 
   // Example weekly data for Month 2 (weeks 5-8)
-  const generateMonth2Weeks = () => {
+  const generateMonth2Weeks = useCallback(() => {
     return Array.from({ length: 4 }, (_, weekIdx) => {
       const weekNumber = weekIdx + 5; // Starting from week 5
       const basePercentage = 70;
@@ -117,10 +209,10 @@ export function SalesProgress() {
         weekData: generateWeekData(weekNumber)
       };
     });
-  };
+  }, [generateWeekData]);
 
   // Example weekly data for Month 3 (weeks 9-12)
-  const generateMonth3Weeks = () => {
+  const generateMonth3Weeks = useCallback(() => {
     return Array.from({ length: 4 }, (_, weekIdx) => {
       const weekNumber = weekIdx + 9; // Starting from week 9
       const basePercentage = 80;
@@ -134,18 +226,7 @@ export function SalesProgress() {
         weekData: generateWeekData(weekNumber)
       };
     });
-  };
-
-  // Handle accordion expansion
-  const handleWeekExpand = (weekNumber: number) => {
-    console.log(`Week ${weekNumber} expanded`);
-    setOpenAccordion(`week-${weekNumber}`);
-  };
-
-  // Handle accordion value changes directly
-  const handleAccordionChange = (value: string | undefined) => {
-    setOpenAccordion(value || null);
-  };
+  }, [generateWeekData]);
 
   // Example monthly data with updated MonthlyAccordion props to handle expansion
   const monthlyData: MonthData[] = [
