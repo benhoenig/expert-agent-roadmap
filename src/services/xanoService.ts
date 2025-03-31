@@ -457,4 +457,15 @@ export const xanoService = {
       throw error;
     }
   },
+  
+  // Get metadata for sales interface progress page
+  getSalesInterfaceMetadata: async () => {
+    return xanoService._fetchWithRetry(() => {
+      console.log('Fetching sales interface metadata...');
+      return xanoApi.get('/sales_interface/metadata').then(response => {
+        console.log('Sales interface metadata response:', response.data);
+        return response.data;
+      });
+    });
+  },
 }; 

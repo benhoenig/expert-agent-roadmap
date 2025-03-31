@@ -1,107 +1,226 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CircularProgress } from "@/components/ui/circular-progress";
 import { MonthlyAccordion, MonthData } from "@/components/ui/monthly-accordion";
 import { Accordion } from "@/components/ui/accordion";
-import { WeeklyProgressItem, WeeklyProgressData } from "@/components/ui/weekly-progress-item";
+import { WeekAccordion } from "./WeekAccordion";
+import { xanoService } from "@/services/xanoService";
+import { toast } from "sonner";
+
+// Generate mock week data for demo purposes
+const generateWeekData = (weekNumber: number) => {
+  return {
+    isLoaded: true,
+    isLoading: false,
+    progressData: [
+      { kpi_id: 1, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
+      { kpi_id: 2, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
+      { kpi_id: 3, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
+      { kpi_id: 101, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
+      { kpi_id: 102, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
+      { kpi_id: 103, requirement_id: 0, count: Math.floor(Math.random() * 10), is_complete: Math.random() > 0.5 },
+    ],
+    targetData: [
+      { kpi_id: 1, requirement_id: 0, target_count: 8 },
+      { kpi_id: 2, requirement_id: 0, target_count: 5 },
+      { kpi_id: 3, requirement_id: 0, target_count: 10 },
+      { kpi_id: 101, requirement_id: 0, target_count: 7 },
+      { kpi_id: 102, requirement_id: 0, target_count: 6 },
+      { kpi_id: 103, requirement_id: 0, target_count: 9 },
+    ],
+    comment: `Week ${weekNumber} commentary goes here`
+  };
+};
 
 export function SalesProgress() {
   const [progressPercentage, setProgressPercentage] = useState(75); // Example progress value
   const [probationPercentage, setProbationPercentage] = useState(60); // Example probation value
   const [currentRank, setCurrentRank] = useState("Level 2"); // Example rank
+  const [metadata, setMetadata] = useState(null);
+  const [isMetadataLoaded, setIsMetadataLoaded] = useState(false);
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
+  const [openAccordion, setOpenAccordion] = useState<string | null>(null);
+  const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
+
+  // Load metadata only when needed (when a month accordion is expanded)
+  const loadMetadata = useCallback(async () => {
+    if (metadata || isLoadingMetadata) return; // Don't load if already loaded or loading
+    
+    try {
+      setIsLoadingMetadata(true);
+      const response = await xanoService.getSalesInterfaceMetadata();
+      
+      // Map the response structure to match the format expected by WeekAccordion
+      const mappedMetadata = {
+        mentorDashboard_actionKpi_masterData: response.result1.map((item, index) => ({ 
+          kpi_id: index + 1, 
+          kpi_name: item.kpi_name 
+        })),
+        mentorDashboard_skillsetKpi_masterData: response.salesInterface_skillsetKpi_masterData.map((item, index) => ({ 
+          kpi_id: index + 101, // Use a different number range to avoid conflicts
+          kpi_name: item.kpi_name 
+        })),
+        mentorDashboard_requirement_masterData: response.salesInterface_requirement_masterData.map((item, index) => ({ 
+          requirement_id: index + 1, 
+          requirement_name: item.requirement_name 
+        }))
+      };
+      
+      setMetadata(mappedMetadata);
+      setIsMetadataLoaded(true);
+    } catch (error) {
+      console.error("Error loading metadata:", error);
+      toast.error("Failed to load metadata. Please try again.");
+    } finally {
+      setIsLoadingMetadata(false);
+    }
+  }, [metadata, isLoadingMetadata]);
+
+  // Function to handle month accordion expansion
+  const handleMonthExpand = useCallback((value: string) => {
+    if (!expandedMonth && value) {
+      // Loading metadata only on first expansion of any month
+      loadMetadata();
+    }
+    setExpandedMonth(value);
+  }, [expandedMonth, loadMetadata]);
 
   // Example weekly data for Month 1 (weeks 1-4)
-  const generateMonth1Weeks = (): WeeklyProgressData[] => {
+  const generateMonth1Weeks = () => {
     return Array.from({ length: 4 }, (_, weekIdx) => {
+      const weekNumber = weekIdx + 1;
       const basePercentage = 60;
       const weekVariation = weekIdx * 5;
       const progressPercentage = Math.min(Math.max(basePercentage + weekVariation, 0), 100);
       
       return {
-        weekNumber: weekIdx + 1,
+        weekNumber,
         isCompleted: progressPercentage >= 100,
-        progressPercentage
+        progressPercentage,
+        weekData: generateWeekData(weekNumber)
       };
     });
   };
 
   // Example weekly data for Month 2 (weeks 5-8)
-  const generateMonth2Weeks = (): WeeklyProgressData[] => {
+  const generateMonth2Weeks = () => {
     return Array.from({ length: 4 }, (_, weekIdx) => {
+      const weekNumber = weekIdx + 5; // Starting from week 5
       const basePercentage = 70;
       const weekVariation = weekIdx * 5;
       const progressPercentage = Math.min(Math.max(basePercentage + weekVariation, 0), 100);
       
       return {
-        weekNumber: weekIdx + 5, // Starting from week 5
+        weekNumber,
         isCompleted: progressPercentage >= 100,
-        progressPercentage
+        progressPercentage,
+        weekData: generateWeekData(weekNumber)
       };
     });
   };
 
   // Example weekly data for Month 3 (weeks 9-12)
-  const generateMonth3Weeks = (): WeeklyProgressData[] => {
+  const generateMonth3Weeks = () => {
     return Array.from({ length: 4 }, (_, weekIdx) => {
+      const weekNumber = weekIdx + 9; // Starting from week 9
       const basePercentage = 80;
       const weekVariation = weekIdx * 5;
       const progressPercentage = Math.min(Math.max(basePercentage + weekVariation, 0), 100);
       
       return {
-        weekNumber: weekIdx + 9, // Starting from week 9
+        weekNumber,
         isCompleted: progressPercentage >= 100,
-        progressPercentage
+        progressPercentage,
+        weekData: generateWeekData(weekNumber)
       };
     });
   };
 
-  // Example monthly data
+  // Handle accordion expansion
+  const handleWeekExpand = (weekNumber: number) => {
+    console.log(`Week ${weekNumber} expanded`);
+    setOpenAccordion(`week-${weekNumber}`);
+  };
+
+  // Handle accordion value changes directly
+  const handleAccordionChange = (value: string | undefined) => {
+    setOpenAccordion(value || null);
+  };
+
+  // Example monthly data with updated MonthlyAccordion props to handle expansion
   const monthlyData: MonthData[] = [
     {
       month: "Month 1",
+      id: "month-0",
       content: (
         <div>
-          <h4 className="text-sm font-medium mb-2">Weekly Breakdown</h4>
-          <Accordion type="single" collapsible>
-            {generateMonth1Weeks().map((week) => (
-              <WeeklyProgressItem 
-                key={week.weekNumber} 
-                week={week} 
-              />
-            ))}
-          </Accordion>
+          <div className="space-y-2">
+            <Accordion type="single" collapsible value={openAccordion} onValueChange={handleAccordionChange}>
+              {generateMonth1Weeks().map((week) => (
+                <WeekAccordion
+                  key={week.weekNumber}
+                  weekNumber={week.weekNumber}
+                  weekData={week.weekData}
+                  isCompleted={week.isCompleted}
+                  progressPercentage={week.progressPercentage}
+                  metadata={metadata}
+                  isMetadataLoaded={isMetadataLoaded}
+                  onExpand={handleWeekExpand}
+                  className=""
+                />
+              ))}
+            </Accordion>
+          </div>
         </div>
       )
     },
     {
       month: "Month 2",
+      id: "month-1",
       content: (
         <div>
-          <h4 className="text-sm font-medium mb-2">Weekly Breakdown</h4>
-          <Accordion type="single" collapsible>
-            {generateMonth2Weeks().map((week) => (
-              <WeeklyProgressItem 
-                key={week.weekNumber} 
-                week={week} 
-              />
-            ))}
-          </Accordion>
+          <div className="space-y-2">
+            <Accordion type="single" collapsible value={openAccordion} onValueChange={handleAccordionChange}>
+              {generateMonth2Weeks().map((week) => (
+                <WeekAccordion
+                  key={week.weekNumber}
+                  weekNumber={week.weekNumber}
+                  weekData={week.weekData}
+                  isCompleted={week.isCompleted}
+                  progressPercentage={week.progressPercentage}
+                  metadata={metadata}
+                  isMetadataLoaded={isMetadataLoaded}
+                  onExpand={handleWeekExpand}
+                  className=""
+                />
+              ))}
+            </Accordion>
+          </div>
         </div>
       )
     },
     {
       month: "Month 3",
+      id: "month-2",
       content: (
         <div>
-          <h4 className="text-sm font-medium mb-2">Weekly Breakdown</h4>
-          <Accordion type="single" collapsible>
-            {generateMonth3Weeks().map((week) => (
-              <WeeklyProgressItem 
-                key={week.weekNumber} 
-                week={week} 
-              />
-            ))}
-          </Accordion>
+          <div className="space-y-2">
+            <Accordion type="single" collapsible value={openAccordion} onValueChange={handleAccordionChange}>
+              {generateMonth3Weeks().map((week) => (
+                <WeekAccordion
+                  key={week.weekNumber}
+                  weekNumber={week.weekNumber}
+                  weekData={week.weekData}
+                  isCompleted={week.isCompleted}
+                  progressPercentage={week.progressPercentage}
+                  metadata={metadata}
+                  isMetadataLoaded={isMetadataLoaded}
+                  onExpand={handleWeekExpand}
+                  className=""
+                />
+              ))}
+            </Accordion>
+          </div>
         </div>
       )
     }
@@ -124,19 +243,29 @@ export function SalesProgress() {
         </TabsList>
         
         <TabsContent value="progress" className="mt-6">
-          <div className="rounded-lg border p-6">
-            <h3 className="text-lg font-medium mb-6">Weekly Progress</h3>
+          {/* Circular Progress card */}
+          <div className="rounded-lg border p-6 mb-6">
+            <h3 className="text-lg font-medium mb-6">Overall Progress</h3>
             
-            <CircularProgress 
-              progressPercentage={progressPercentage}
-              probationPercentage={probationPercentage}
-              size="md"
-              rank={currentRank}
-            />
-            
-            <div className="mt-8">
-              <h4 className="text-md font-medium mb-4">Monthly Performance</h4>
-              <MonthlyAccordion months={monthlyData} />
+            <div className="flex justify-center">
+              <CircularProgress 
+                progressPercentage={progressPercentage}
+                probationPercentage={probationPercentage}
+                size="md"
+                rank={currentRank}
+              />
+            </div>
+          </div>
+          
+          {/* Weekly breakdown with lazy-loaded metadata */}
+          <div className="rounded-lg border">
+            <h3 className="text-lg font-medium p-4 pb-2">Weekly Breakdown</h3>
+            <div className="px-1 pb-2">
+              <MonthlyAccordion 
+                months={monthlyData} 
+                onValueChange={handleMonthExpand}
+                value={expandedMonth}
+              />
             </div>
           </div>
         </TabsContent>
@@ -151,7 +280,7 @@ export function SalesProgress() {
         <TabsContent value="logs" className="mt-6">
           <div className="rounded-lg border p-6">
             <h3 className="text-lg font-medium mb-4">Activity Logs</h3>
-            <p>Your recent activity logs will appear here.</p>
+            <p>Your activity history will appear here.</p>
           </div>
         </TabsContent>
       </Tabs>
