@@ -17,6 +17,12 @@ interface TargetData {
   kpi_id: number;
   requirement_id: number;
   target_count: number;
+  _kpi?: {
+    kpi_name: string;
+    kpi_id?: number;
+    kpi_type?: string;
+  };
+  _requirement?: any[];
 }
 
 interface WeekData {
@@ -199,24 +205,49 @@ export function WeekAccordion({
                         s => s._kpi?.kpi_name === skill.kpi_name
                       );
                       
-                      // Use real data if available, otherwise use mock data
-                      const wording = skillsetEntry?.wording_score || Math.floor(Math.random() * 100);
-                      const tonality = skillsetEntry?.tonality_score || Math.floor(Math.random() * 100);
-                      const rapport = skillsetEntry?.rapport_score || Math.floor(Math.random() * 100);
-                      const total = skillsetEntry?.total_score || Math.floor((wording + tonality + rapport) / 3);
+                      // Find matching target if any - use the actual kpi_id from the skillset entry
+                      const skillTarget = weekData.targetData?.find(
+                        t => t.kpi_id === skill.kpi_id && t.requirement_id === 0
+                      );
+                      
+                      // Only use real data, no mock data fallback
+                      const hasSkillsetData = !!skillsetEntry;
+                      const wording = skillsetEntry?.wording_score;
+                      const tonality = skillsetEntry?.tonality_score;
+                      const rapport = skillsetEntry?.rapport_score;
+                      const total = skillsetEntry?.total_score;
+                      
+                      const target = skillTarget?.target_count || 0;
+                      const hasTarget = target > 0;
+                      const isTargetMet = hasTarget && hasSkillsetData && total >= target;
                       
                       return (
                         <div key={skill.kpi_id} className="border rounded-md p-3">
                           <div className="font-medium mb-2">{skill.kpi_name}</div>
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <div>Wording:</div>
-                            <div>{wording}%</div>
+                            <div>{hasSkillsetData ? `${wording}%` : 'N/A'}</div>
                             <div>Tonality:</div>
-                            <div>{tonality}%</div>
+                            <div>{hasSkillsetData ? `${tonality}%` : 'N/A'}</div>
                             <div>Rapport:</div>
-                            <div>{rapport}%</div>
+                            <div>{hasSkillsetData ? `${rapport}%` : 'N/A'}</div>
                             <div className="font-medium">Total:</div>
-                            <div className="font-medium">{total}%</div>
+                            <div className="font-medium">{hasSkillsetData ? `${total}%` : 'N/A'}</div>
+                            
+                            {/* Always show target row, conditionally show progress bar */}
+                            <div className="font-medium">Target:</div>
+                            <div className="font-medium">{hasTarget ? `${target}%` : 'N/A'}</div>
+                            
+                            {hasTarget && hasSkillsetData && (
+                              <div className="col-span-2 mt-1">
+                                <div className="h-2 w-full bg-secondary rounded-full">
+                                  <div 
+                                    className={`h-full rounded-full ${isTargetMet ? 'bg-green-500' : 'bg-gold-500'}`}
+                                    style={{ width: `${Math.min((total / target) * 100, 100)}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
@@ -225,12 +256,13 @@ export function WeekAccordion({
                   
                   {/* Desktop view */}
                   <div className="hidden sm:block">
-                    <div className="grid grid-cols-15 gap-2 text-sm font-medium text-muted-foreground">
-                      <div className="col-span-3">Skillset</div>
-                      <div className="col-span-3">Wording</div>
-                      <div className="col-span-3">Tonality</div>
-                      <div className="col-span-3">Rapport</div>
-                      <div className="col-span-3">Total (%)</div>
+                    <div className="grid grid-cols-12 gap-2 text-sm font-medium text-muted-foreground">
+                      <div className="col-span-2">Skillset</div>
+                      <div className="col-span-2">Wording</div>
+                      <div className="col-span-2">Tonality</div>
+                      <div className="col-span-2">Rapport</div>
+                      <div className="col-span-2">Total (%)</div>
+                      <div className="col-span-2 text-right">Target</div>
                     </div>
                     
                     <div className="space-y-2 mt-2">
@@ -240,19 +272,52 @@ export function WeekAccordion({
                           s => s._kpi?.kpi_name === skill.kpi_name
                         );
                         
-                        // Use real data if available, otherwise use mock data
-                        const wording = skillsetEntry?.wording_score || Math.floor(Math.random() * 100);
-                        const tonality = skillsetEntry?.tonality_score || Math.floor(Math.random() * 100);
-                        const rapport = skillsetEntry?.rapport_score || Math.floor(Math.random() * 100);
-                        const total = skillsetEntry?.total_score || Math.floor((wording + tonality + rapport) / 3);
+                        // Find matching target if any - use the actual kpi_id from the skillset entry
+                        const skillTarget = weekData.targetData?.find(
+                          t => t.kpi_id === skill.kpi_id && t.requirement_id === 0
+                        );
+                        
+                        // Only use real data, no mock data fallback
+                        const hasSkillsetData = !!skillsetEntry;
+                        const wording = skillsetEntry?.wording_score;
+                        const tonality = skillsetEntry?.tonality_score;
+                        const rapport = skillsetEntry?.rapport_score;
+                        const total = skillsetEntry?.total_score;
+                        
+                        const target = skillTarget?.target_count || 0;
+                        const hasTarget = target > 0;
+                        const isTargetMet = hasTarget && hasSkillsetData && total >= target;
                         
                         return (
-                          <div key={skill.kpi_id} className="grid grid-cols-15 gap-2 items-center">
-                            <div className="col-span-3">{skill.kpi_name}</div>
-                            <div className="col-span-3">{wording}%</div>
-                            <div className="col-span-3">{tonality}%</div>
-                            <div className="col-span-3">{rapport}%</div>
-                            <div className="col-span-3">{total}%</div>
+                          <div key={skill.kpi_id} className="grid grid-cols-12 gap-2 items-center">
+                            <div className="col-span-2">{skill.kpi_name}</div>
+                            <div className="col-span-2">{hasSkillsetData ? `${wording}%` : 'N/A'}</div>
+                            <div className="col-span-2">{hasSkillsetData ? `${tonality}%` : 'N/A'}</div>
+                            <div className="col-span-2">{hasSkillsetData ? `${rapport}%` : 'N/A'}</div>
+                            <div className="col-span-2">{hasSkillsetData ? `${total}%` : 'N/A'}</div>
+                            <div className="col-span-2 space-y-1">
+                              {hasTarget ? (
+                                <>
+                                  {hasSkillsetData ? (
+                                    <>
+                                      <div className="h-2 w-full bg-secondary rounded-full">
+                                        <div 
+                                          className={`h-full rounded-full ${isTargetMet ? 'bg-green-500' : 'bg-gold-500'}`}
+                                          style={{ width: `${Math.min((total / target) * 100, 100)}%` }}
+                                        />
+                                      </div>
+                                      <div className="text-sm text-right whitespace-nowrap">
+                                        {total}/{target}
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="text-sm text-right text-muted-foreground">No data available</div>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="text-sm text-right text-muted-foreground">No target</div>
+                              )}
+                            </div>
                           </div>
                         );
                       })}

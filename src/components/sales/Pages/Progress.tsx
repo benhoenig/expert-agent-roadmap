@@ -153,10 +153,14 @@ export function SalesProgress() {
           kpi_id: index + 1, 
           kpi_name: item.kpi_name 
         })),
-        mentorDashboard_skillsetKpi_masterData: response.salesInterface_skillsetKpi_masterData.map((item, index) => ({ 
-          kpi_id: index + 101, // Use a different number range to avoid conflicts
-          kpi_name: item.kpi_name 
-        })),
+        mentorDashboard_skillsetKpi_masterData: response.salesInterface_skillsetKpi_masterData.map((item, index) => {
+          // Use actual skillset kpi_ids that match the API (8, 9, 10)
+          // Owner Script = 8, Consulting Script = 9, Buyer Script = 10
+          return { 
+            kpi_id: index + 8, // Starting from 8 to match API's kpi_id for skillsets
+            kpi_name: item.kpi_name 
+          };
+        }),
         mentorDashboard_requirement_masterData: response.salesInterface_requirement_masterData.map((item, index) => ({ 
           requirement_id: index + 1, 
           requirement_name: item.requirement_name 
