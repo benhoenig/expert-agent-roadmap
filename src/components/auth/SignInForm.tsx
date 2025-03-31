@@ -112,7 +112,7 @@ export function SignInForm() {
       className="space-y-4"
     >
       <div className="space-y-2">
-        <Label htmlFor="username" className="text-sm font-medium">
+        <Label htmlFor="username" className="text-sm font-medium text-zinc-300">
           Username
         </Label>
         <Input
@@ -122,14 +122,14 @@ export function SignInForm() {
           placeholder="Enter your username"
           autoComplete="username"
           required
-          className="w-full border-gray-200 focus-within:border-gray-300 transition-all"
+          className="w-full bg-zinc-800 border-zinc-700 focus-within:border-gold-500 text-white placeholder:text-zinc-400 transition-all"
           value={formData.username}
           onChange={handleChange}
         />
       </div>
       
       <div className="space-y-2">
-        <Label htmlFor="password" className="text-sm font-medium">
+        <Label htmlFor="password" className="text-sm font-medium text-zinc-300">
           Password
         </Label>
         <div className="relative">
@@ -140,14 +140,14 @@ export function SignInForm() {
             placeholder="••••••••"
             autoComplete="current-password"
             required
-            className="w-full border-gray-200 focus-within:border-gray-300 transition-all pr-10"
+            className="w-full bg-zinc-800 border-zinc-700 focus-within:border-gold-500 text-white placeholder:text-zinc-400 transition-all pr-10"
             value={formData.password}
             onChange={handleChange}
           />
           <button
             type="button"
             onClick={togglePasswordVisibility}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-300 transition"
           >
             {showPassword ? (
               <EyeOff size={18} />
@@ -163,22 +163,23 @@ export function SignInForm() {
           id="remember-me" 
           checked={rememberMe} 
           onCheckedChange={(checked) => setRememberMe(checked === true)}
+          className="border-zinc-600 text-gold-500 data-[state=checked]:bg-gold-500 data-[state=checked]:border-gold-500"
         />
-        <Label htmlFor="remember-me" className="text-sm text-muted-foreground cursor-pointer">
+        <Label htmlFor="remember-me" className="text-sm text-zinc-400 cursor-pointer">
           Keep me signed in
         </Label>
       </div>
       
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-600 text-sm">
+        <div className="p-3 bg-red-900/20 border border-red-800 rounded-md text-red-400 text-sm">
           {error}
         </div>
       )}
       
       <Button
         type="submit"
-        className="w-full bg-gold-500 hover:bg-gold-600 text-white font-medium"
         disabled={isLoading}
+        className="w-full bg-gold-500 hover:bg-gold-600 text-white font-medium"
       >
         {isLoading ? (
           <>
@@ -186,7 +187,7 @@ export function SignInForm() {
             Signing In...
           </>
         ) : (
-          "Sign In"
+          <span className="text-black">Sign In</span>
         )}
       </Button>
     </motion.form>
