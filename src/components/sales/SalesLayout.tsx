@@ -60,7 +60,7 @@ export function SalesLayout() {
       {/* Main content */}
       <div className="flex flex-col flex-1 overflow-x-hidden">
         {/* Header bar */}
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card/80 backdrop-blur-md px-4">
+        <header className="fixed top-0 left-0 right-0 z-40 flex h-16 items-center justify-between border-b border-border bg-card/95 backdrop-blur-md px-4 shadow-sm">
           <Button
             variant="ghost"
             size="icon"
@@ -83,8 +83,8 @@ export function SalesLayout() {
           </motion.div>
         </header>
         
-        {/* Main content area */}
-        <main className="flex-1 overflow-x-hidden p-4 lg:p-8 transition-all">
+        {/* Main content area - add padding-top to account for fixed header */}
+        <main className="flex-1 overflow-x-hidden p-4 pt-20 lg:p-8 lg:pt-20 transition-all">
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, y: 20 }}
