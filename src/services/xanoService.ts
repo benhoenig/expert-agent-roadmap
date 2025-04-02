@@ -1,7 +1,10 @@
 import axios from "axios";
 
 // Xano API configuration
-const XANO_BASE_URL = "https://x8ki-letl-twmt.n7.xano.io/api:mN-lWGen";
+const XANO_BASE_URL = import.meta.env.VITE_XANO_BASE_URL || "https://x8ki-letl-twmt.n7.xano.io/api:mN-lWGen";
+
+// Log which URL we're using
+console.log('[xanoService] Using API base URL:', XANO_BASE_URL);
 
 // Cache configuration
 const CACHE_TTL = 60000; // 1 minute cache TTL
@@ -352,37 +355,45 @@ export const xanoService = {
     }
   },
 
-  // Helper method to implement retries on API calls
-  _fetchWithRetry: async function(apiCall, maxRetries = 2, retryDelay = 1000) {
-    let lastError;
-    
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+  // Fetch with retry functionality
+  _fetchWithRetry: async (fetchFunction, maxRetries = 3, delay = 1000) => {
+    let retries = 0;
+    let lastError = null;
+
+    while (retries < maxRetries) {
       try {
-        // Use timeout for each attempt
-        return await this._fetchWithTimeout(apiCall());
+        return await fetchFunction();
       } catch (error) {
+        retries++;
         lastError = error;
-        console.error(`Attempt ${attempt + 1}/${maxRetries + 1} failed:`, error);
         
-        // Don't retry on 4xx errors other than 429 (rate limit)
-        if (error.response && error.response.status >= 400 && error.response.status < 500 && error.response.status !== 429) {
-          throw error;
+        console.log(`Attempt ${retries}/${maxRetries} failed:`, error);
+        
+        // Log more details about the error for debugging
+        if (error.response) {
+          // The request was made and the server responded with a status code
+          // that falls out of the range of 2xx
+          console.error('Error response data:', error.response.data);
+          console.error('Error response status:', error.response.status);
+          console.error('Error response headers:', error.response.headers);
+        } else if (error.request) {
+          // The request was made but no response was received
+          console.error('Error request:', error.request);
+        } else {
+          // Something happened in setting up the request that triggered an Error
+          console.error('Error message:', error.message);
         }
         
-        // If this wasn't the last attempt, wait before retrying
-        if (attempt < maxRetries) {
-          // Use longer delays for 429 errors
-          const adjustedDelay = error.response && error.response.status === 429 ? retryDelay * 2 : retryDelay;
-          console.log(`Retrying in ${adjustedDelay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, adjustedDelay));
-          
-          // Increase delay for next retry (exponential backoff)
-          retryDelay *= 2;
+        if (retries < maxRetries) {
+          console.log(`Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          // Exponential backoff
+          delay *= 2;
         }
       }
     }
-    
-    // If we got here, we exhausted all retries
+
+    console.error(`All ${maxRetries} retry attempts failed.`);
     throw lastError;
   },
 
@@ -501,13 +512,19 @@ export const xanoService = {
   // Get metadata for sales interface progress page
   getSalesInterfaceMetadata: async () => {
     console.log('[xanoService] Fetching sales interface metadata');
-    const response = await xanoService._fetchWithRetry(() => {
-      return xanoApi.get('/sales_interface_metadata').then(response => {
-        console.log('[xanoService] Sales interface metadata response:', response.data);
-        return response.data;
+    try {
+      const response = await xanoService._fetchWithRetry(() => {
+        console.log('[xanoService] Attempting with sales_interface/{metadata} endpoint');
+        return xanoApi.get('/sales_interface/metadata').then(response => {
+          console.log('[xanoService] Sales interface metadata response:', response.data);
+          return response.data;
+        });
       });
-    });
-    return response;
+      return response;
+    } catch (error) {
+      console.error('[xanoService] Failed to fetch metadata:', error);
+      throw error;
+    }
   },
   
   // Get target data for sales interface progress
