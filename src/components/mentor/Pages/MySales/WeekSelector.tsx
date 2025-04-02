@@ -40,9 +40,8 @@ export function WeekSelector({
         
         {/* Set Target Button */}
         <Button 
-          variant="outline" 
+          variant="primary-outline" 
           size="sm"
-          className="border-gold-500 text-gold-500 hover:bg-gold-50"
           onClick={() => handleOpenTargetDialog(salesId, selectedWeek)}
         >
           <Target className="mr-1 h-3 w-3" />

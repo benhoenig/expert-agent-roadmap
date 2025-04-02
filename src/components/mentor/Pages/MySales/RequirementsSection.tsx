@@ -65,11 +65,15 @@ export function RequirementsSection({
             <div key={index} className="flex items-center justify-between">
               <span>{req.requirement_name}</span>
               <div className="flex items-center gap-2">
-                <Badge 
-                  variant="outline" 
-                  className={isCompleted ? "bg-green-100 text-green-800" : "bg-gold-100 text-gold-800"}
+                <Badge
+                  variant="outline"
+                  className={`${
+                    isCompleted
+                      ? "bg-gold-50 text-gold-900 hover:bg-gold-100"
+                      : "bg-gray-100 hover:bg-gray-200"
+                  }`}
                 >
-                  {count}
+                  {count}/{target}
                 </Badge>
                 <span className="text-muted-foreground text-sm">
                   {hasTarget ? `/${target}` : '/ N/A'}

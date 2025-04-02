@@ -1,4 +1,3 @@
-
 import { NavLink, useNavigate } from "react-router-dom";
 import { LayoutDashboard, Target, TrendingUp, LogOut, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -73,7 +72,7 @@ export function MentorSidebar({ closeSidebar }: MentorSidebarProps) {
               <NavLink
                 to={item.path}
                 className={({ isActive }) => cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all",
+                  "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
                   "hover:bg-gold-50 hover:text-gold-900 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gold-500",
                   isActive 
                     ? "bg-gold-100 text-gold-900 font-medium" 

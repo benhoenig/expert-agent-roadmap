@@ -133,8 +133,7 @@ export function MentorMySales() {
           
           <Button 
             onClick={handleRefresh}
-            variant="outline" 
-            className="border-gold-500 text-gold-500 hover:bg-gold-50"
+            variant="primary-outline" 
           >
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
@@ -185,6 +184,7 @@ export function MentorMySales() {
           getCurrentTarget={getCurrentTarget}
           targetSalesId={targetSalesId || undefined}
           targetWeek={targetWeek || undefined}
+          isSaving={false}
         />
 
         {/* Sales Accordions */}

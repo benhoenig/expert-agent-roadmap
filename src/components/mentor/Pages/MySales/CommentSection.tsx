@@ -9,6 +9,7 @@ interface CommentSectionProps {
   handleCommentChange: (salesId: number, week: number, comment: string) => void;
   saveComment: (salesId: number, week: number) => void;
   weeklyData: Record<number, WeeklyPerformance[]>;
+  loading: boolean;
 }
 
 export function CommentSection({
@@ -17,7 +18,8 @@ export function CommentSection({
   getCommentValue,
   handleCommentChange,
   saveComment,
-  weeklyData
+  weeklyData,
+  loading
 }: CommentSectionProps) {
   return (
     <div>
@@ -29,12 +31,13 @@ export function CommentSection({
         onChange={(e) => handleCommentChange(salesId, selectedWeek, e.target.value)}
       />
       <div className="flex justify-end mt-2">
-        <Button 
-          variant="outline" 
-          className="border-gold-500 text-gold-500 hover:bg-gold-50"
+        <Button
+          variant="primary-outline"
+          size="sm"
           onClick={() => saveComment(salesId, selectedWeek)}
+          disabled={loading}
         >
-          Save Comment
+          {loading ? 'Saving...' : 'Save Comment'}
         </Button>
       </div>
     </div>

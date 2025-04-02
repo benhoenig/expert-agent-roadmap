@@ -35,10 +35,10 @@ export function WeeklyProgress({
           {progressPercentage}%
         </span>
       </div>
-      <div className="h-2.5 w-full bg-gray-100 rounded-full">
+      <div className="h-2 w-full bg-secondary rounded-full">
         <div 
           className={`h-full rounded-full ${isGoodProgress ? 'bg-green-500' : 'bg-gold-500'}`}
-          style={{ width: `${progressPercentage}%` }}
+          style={{ width: `${Math.min(progressPercentage, 100)}%` }}
         />
       </div>
       <div className="flex justify-between text-xs text-muted-foreground mt-1">

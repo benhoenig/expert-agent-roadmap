@@ -171,6 +171,7 @@ export function SalesCard({
               handleCommentChange={handleCommentChange}
               saveComment={saveComment}
               weeklyData={weeklyData}
+              loading={false}
             />
           </>
         )}

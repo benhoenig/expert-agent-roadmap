@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Search, RefreshCw } from "lucide-react";
+import { Search, RefreshCw, Loader2 } from "lucide-react";
 import { xanoService } from "@/services/xanoService";
 import { toast } from "sonner";
 import { 
@@ -64,6 +64,7 @@ export function MentorSalesAssignment() {
   const [isConfirmUnassignVisible, setIsConfirmUnassignVisible] = useState(false);
   const [salesIdToUnassign, setSalesIdToUnassign] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   const fetchAssignments = async () => {
     try {
@@ -154,6 +155,7 @@ export function MentorSalesAssignment() {
         selectedMentor: mentors.find(m => m.id === mentorId)
       });
       
+      setIsSaving(true);
       const response = await xanoService.assignMentorToSales(salesId, mentorId);
       console.log('Mentor assignment response:', response);
       
@@ -167,6 +169,8 @@ export function MentorSalesAssignment() {
     } catch (error) {
       console.error('Failed to assign mentor:', error);
       toast.error('Failed to assign mentor. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -218,8 +222,12 @@ export function MentorSalesAssignment() {
             </div>
             
             <div className="flex gap-2">
-              <Button onClick={fetchAssignments} variant="outline" className="border-gold-500 text-gold-500 hover:bg-gold-50">
-                <RefreshCw className="mr-2 h-4 w-4" />
+              <Button 
+                onClick={fetchAssignments} 
+                variant="primary-outline" 
+                className="mr-2"
+              >
+                <RefreshCw size={16} />
                 Refresh
               </Button>
             </div>
@@ -300,9 +308,10 @@ export function MentorSalesAssignment() {
                           <div className="flex gap-2">
                             <Button
                               onClick={() => showMentorModal(assignment.id)}
-                              className="bg-gold-500 hover:bg-gold-600 text-white"
+                              variant="primary"
+                              disabled={isSaving}
                             >
-                              {assignment._mentor?._user[0] ? 'Change Mentor' : 'Assign Mentor'}
+                              {isSaving ? <Loader2 className="animate-spin" /> : 'Change Mentor'}
                             </Button>
                             {assignment._mentor?._user[0] && (
                               <Button

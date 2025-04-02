@@ -592,17 +592,12 @@ export function UserEditModal({ isOpen, onClose, userId, onUserUpdated }: UserEd
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleSave} 
-            className="bg-gold-500 hover:bg-gold-600 text-white"
+          <Button
+            type="submit"
+            variant="primary"
             disabled={isSaving}
           >
-            {isSaving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : "Save Changes"}
+            {isSaving ? 'Saving...' : 'Save Changes'}
           </Button>
         </DialogFooter>
       </DialogContent>

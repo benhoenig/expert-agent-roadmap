@@ -243,12 +243,19 @@ export function UserDashboard() {
             </div>
             
             <div className="flex gap-2">
-              <Button onClick={handleRefresh} variant="outline" className="border-gold-500 text-gold-500 hover:bg-gold-50">
-                <RefreshCw className="mr-2 h-4 w-4" />
+              <Button 
+                onClick={handleRefresh} 
+                variant="primary-outline" 
+                className="mr-2"
+              >
+                <RefreshCw size={16} />
                 Refresh
               </Button>
-              <Button onClick={handleOpenAddModal} className="bg-gold-500 hover:bg-gold-600 text-white">
-                <PlusCircle className="mr-2 h-4 w-4" />
+              <Button 
+                onClick={handleOpenAddModal} 
+                variant="primary"
+              >
+                <PlusCircle size={16} />
                 Add User
               </Button>
             </div>

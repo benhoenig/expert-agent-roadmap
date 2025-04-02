@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardMetadata, TargetState } from "./types";
+import { Loader2 } from "lucide-react";
 
 interface TargetModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ interface TargetModalProps {
   getCurrentTarget: (type: 'action' | 'skillset' | 'requirement', id: number, salesId?: number, week?: number) => number;
   targetSalesId?: number;
   targetWeek?: number;
+  isSaving: boolean;
 }
 
 export function TargetModal({
@@ -36,7 +38,8 @@ export function TargetModal({
   isLoadingTargets,
   getCurrentTarget,
   targetSalesId,
-  targetWeek
+  targetWeek,
+  isSaving
 }: TargetModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -166,24 +169,21 @@ export function TargetModal({
               </>
             )}
             
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-              >
+            <div className="flex justify-end gap-2 mt-4">
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button
-                type="button"
+              <Button 
+                variant="primary" 
                 onClick={() => {
                   handleSaveTarget();
                 }}
-                disabled={!selectedTarget || isLoadingTargets}
-                className="bg-gold-500 hover:bg-gold-600 text-white cursor-pointer"
+                disabled={!selectedTarget || isLoadingTargets || isSaving}
               >
-                Save Target
+                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Save Targets
               </Button>
-            </DialogFooter>
+            </div>
           </>
         )}
       </DialogContent>
