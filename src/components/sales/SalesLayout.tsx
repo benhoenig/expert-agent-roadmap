@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { SalesSidebar } from "./SalesSidebar";
@@ -7,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
+import AddProgressButton from "./AddProgressButton";
 
 export function SalesLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -95,6 +95,9 @@ export function SalesLayout() {
             <Outlet />
           </motion.div>
         </main>
+        
+        {/* Floating Add Progress Button */}
+        <AddProgressButton />
       </div>
     </div>
   );
