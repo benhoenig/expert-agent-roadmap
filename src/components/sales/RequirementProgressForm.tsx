@@ -20,6 +20,7 @@ interface RequirementProgressFormProps {
 
 export const RequirementProgressForm = ({ metadata, isLoading, onSuccess }: RequirementProgressFormProps) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [weekNumber, setWeekNumber] = useState<string>("1");
   const [requirementId, setRequirementId] = useState<string>("");
   const [trainingName, setTrainingName] = useState<string>("");
   const [lessonName, setLessonName] = useState<string>("");
@@ -27,14 +28,38 @@ export const RequirementProgressForm = ({ metadata, isLoading, onSuccess }: Requ
   const [caseType, setCaseType] = useState<string>("");
   const [lessonLearned, setLessonLearned] = useState<string>("");
   const [attachment, setAttachment] = useState<File | null>(null);
+  const [currentSalesId, setCurrentSalesId] = useState<number | null>(null);
   
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingSalesId, setIsLoadingSalesId] = useState(false);
+  
+  // Create array of weeks 1-12
+  const weeks = Array.from({ length: 12 }, (_, i) => (i + 1).toString());
   
   // Case types for Real Case with Senior
   const caseTypes = ["Owner Visit", "Survey", "Showing"];
   
   // Helper to get formatted date
   const formattedDate = format(selectedDate, "yyyy-MM-dd");
+  
+  // Fetch current sales ID on component mount
+  useEffect(() => {
+    const fetchCurrentSalesId = async () => {
+      try {
+        setIsLoadingSalesId(true);
+        const salesData = await xanoService.getSalesInterface();
+        if (salesData && salesData.id) {
+          setCurrentSalesId(salesData.id);
+        }
+      } catch (error) {
+        console.error("Error fetching sales ID:", error);
+      } finally {
+        setIsLoadingSalesId(false);
+      }
+    };
+    
+    fetchCurrentSalesId();
+  }, []);
   
   // Reset form fields when requirement changes
   useEffect(() => {
@@ -79,20 +104,33 @@ export const RequirementProgressForm = ({ metadata, isLoading, onSuccess }: Requ
       return;
     }
     
+    if (!currentSalesId) {
+      toast.error("Sales ID not found. Please refresh the page.");
+      return;
+    }
+    
     const requirementType = getRequirementType();
     
     try {
       setIsSaving(true);
       
-      // Prepare the payload based on requirement type
+      // Common payload properties
       const payload: any = {
-        date: formattedDate,
+        sales_id: currentSalesId,
+        week_number: parseInt(weekNumber),
         requirement_id: parseInt(requirementId),
-        lesson_learned: lessonLearned,
-        // Add attachment if present
-        // This would typically require a file upload mechanism
+        date_added: formattedDate,
+        lesson_learned: lessonLearned || null,
+        count: 1, // Default count
+        remark: null,
+        attachment: null, // TODO: Implement file upload
+        training_name: null,
+        lesson_name: null,
+        senior_name: null,
+        case_type: null
       };
       
+      // Add type-specific fields
       switch (requirementType) {
         case "Training Attended":
           if (!trainingName) {
@@ -179,6 +217,26 @@ export const RequirementProgressForm = ({ metadata, isLoading, onSuccess }: Requ
             />
           </PopoverContent>
         </Popover>
+      </div>
+      
+      {/* Week Number Selection */}
+      <div className="space-y-2">
+        <Label htmlFor="weekNumber">Week Number</Label>
+        <Select 
+          value={weekNumber} 
+          onValueChange={setWeekNumber}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select week" />
+          </SelectTrigger>
+          <SelectContent>
+            {weeks.map((week) => (
+              <SelectItem key={week} value={week}>
+                Week {week}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       
       {/* Requirement Selection */}
@@ -303,7 +361,7 @@ export const RequirementProgressForm = ({ metadata, isLoading, onSuccess }: Requ
       <Button 
         type="submit" 
         className="w-full bg-black hover:bg-black/80 text-white" 
-        disabled={isSaving || isLoading || !requirementId}
+        disabled={isSaving || isLoading || !requirementId || isLoadingSalesId}
       >
         {isSaving ? (
           <>

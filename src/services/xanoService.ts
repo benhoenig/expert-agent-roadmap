@@ -500,25 +500,14 @@ export const xanoService = {
   
   // Get metadata for sales interface progress page
   getSalesInterfaceMetadata: async () => {
-    // Generate cache key
-    const cacheKey = apiCache.generateKey('getSalesInterfaceMetadata', {});
-    
-    // Check cache first
-    const cachedData = apiCache.get(cacheKey);
-    if (cachedData) {
-      console.log('Using cached sales interface metadata');
-      return cachedData;
-    }
-    
-    return xanoService._fetchWithRetry(() => {
-      console.log('Fetching sales interface metadata...');
-      return xanoApi.get('/sales_interface/metadata').then(response => {
-        console.log('Sales interface metadata response:', response.data);
-        // Cache the response - metadata can be cached longer (15 mins)
-        apiCache.set(cacheKey, response.data, CACHE_TTL * 15);
+    console.log('[xanoService] Fetching sales interface metadata');
+    const response = await xanoService._fetchWithRetry(() => {
+      return xanoApi.get('/sales_interface_metadata').then(response => {
+        console.log('[xanoService] Sales interface metadata response:', response.data);
         return response.data;
       });
     });
+    return response;
   },
   
   // Get target data for sales interface progress
@@ -597,5 +586,73 @@ export const xanoService = {
         return response.data;
       });
     });
+  },
+  
+  // Add KPI Action Progress
+  addKpiActionProgress: async (payload: {
+    sales_id: number;
+    week_number: number;
+    kpi_id: number;
+    date_added: string;
+    count: number;
+    remark?: string | null;
+    attachment?: any | null;
+  }) => {
+    console.log('[xanoService] Adding KPI action progress:', payload);
+    const response = await xanoService._fetchWithRetry(() => {
+      return xanoApi.post('/sales_interface_progress/Action', payload).then(response => {
+        console.log('[xanoService] Add KPI action progress response:', response.data);
+        return response.data;
+      });
+    });
+    return response;
+  },
+  
+  // Add KPI Skillset Progress
+  addKpiSkillsetProgress: async (payload: {
+    sales_id: number;
+    week_number: number;
+    kpi_id: number;
+    date_added: string;
+    wording_score: number;
+    tonality_score: number;
+    rapport_score: number;
+    total_score: number;
+    remark?: string | null;
+    attachment?: any | null;
+  }) => {
+    console.log('[xanoService] Adding KPI skillset progress:', payload);
+    const response = await xanoService._fetchWithRetry(() => {
+      return xanoApi.post('/sales_interface_progress_skillset', payload).then(response => {
+        console.log('[xanoService] Add KPI skillset progress response:', response.data);
+        return response.data;
+      });
+    });
+    return response;
+  },
+  
+  // Add Requirement Progress
+  addRequirementProgress: async (payload: {
+    sales_id: number;
+    week_number: number;
+    requirement_id: number;
+    date_added: string;
+    count?: number;
+    training_name?: string | null;
+    lesson_name?: string | null;
+    senior_name?: string | null;
+    case_type?: string | null;
+    lesson_learned?: string | null;
+    remark?: string | null;
+    attachment?: any | null;
+  }) => {
+    console.log('[xanoService] Adding requirement progress:', payload);
+    const response = await xanoService._fetchWithRetry(() => {
+      return xanoApi.post('/sales_interface_progress_requirement', payload).then(response => {
+        console.log('[xanoService] Add requirement progress response:', response.data);
+        return response.data;
+      });
+    });
+    return response;
   }
 }; 

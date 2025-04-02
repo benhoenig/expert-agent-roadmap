@@ -22,11 +22,13 @@ type KPIType = "Action" | "Skillset";
 
 export const KPIProgressForm = ({ metadata, isLoading, onSuccess }: KPIProgressFormProps) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [weekNumber, setWeekNumber] = useState<string>("1");
   const [kpiType, setKpiType] = useState<KPIType>("Action");
   const [kpiId, setKpiId] = useState<string>("");
   const [remarks, setRemarks] = useState<string>("");
   const [count, setCount] = useState<number>(1);
   const [attachment, setAttachment] = useState<File | null>(null);
+  const [currentSalesId, setCurrentSalesId] = useState<number | null>(null);
   
   // Skillset specific fields
   const [wording, setWording] = useState<number>(0);
@@ -34,12 +36,35 @@ export const KPIProgressForm = ({ metadata, isLoading, onSuccess }: KPIProgressF
   const [rapport, setRapport] = useState<number>(0);
   
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingSalesId, setIsLoadingSalesId] = useState(false);
+  
+  // Create array of weeks 1-12
+  const weeks = Array.from({ length: 12 }, (_, i) => (i + 1).toString());
   
   // Calculate the average score for skillset
   const averageScore = Math.round((wording + tonality + rapport) / 3);
   
   // Helper to get formatted date
   const formattedDate = format(selectedDate, "yyyy-MM-dd");
+  
+  // Fetch current sales ID on component mount
+  useEffect(() => {
+    const fetchCurrentSalesId = async () => {
+      try {
+        setIsLoadingSalesId(true);
+        const salesData = await xanoService.getSalesInterface();
+        if (salesData && salesData.id) {
+          setCurrentSalesId(salesData.id);
+        }
+      } catch (error) {
+        console.error("Error fetching sales ID:", error);
+      } finally {
+        setIsLoadingSalesId(false);
+      }
+    };
+    
+    fetchCurrentSalesId();
+  }, []);
   
   // Reset KPI specific fields when KPI type changes
   useEffect(() => {
@@ -64,31 +89,55 @@ export const KPIProgressForm = ({ metadata, isLoading, onSuccess }: KPIProgressF
     try {
       setIsSaving(true);
       
-      // Prepare the payload based on KPI type
-      const payload: any = {
-        date: formattedDate,
-        remarks,
-        // Add attachment if present
-        // This would typically require a file upload mechanism
-      };
-      
       if (kpiType === "Action") {
-        // Submit action KPI progress
-        payload.kpi_action_id = parseInt(kpiId);
-        payload.count = count;
+        if (!currentSalesId) {
+          toast.error("Sales ID not found. Please refresh the page.");
+          setIsSaving(false);
+          return;
+        }
         
-        await xanoService.addKpiActionProgress(payload);
+        // Submit action KPI progress with new payload format
+        const actionPayload = {
+          sales_id: currentSalesId,
+          week_number: parseInt(weekNumber),
+          kpi_id: parseInt(kpiId),
+          date_added: formattedDate,
+          count: count,
+          remark: remarks || null,
+          attachment: null // TODO: Implement file upload
+        };
+        
+        await xanoService.addKpiActionProgress(actionPayload);
+        toast.success("Action progress added successfully");
       } else {
-        // Submit skillset KPI progress
-        payload.kpi_skillset_id = parseInt(kpiId);
-        payload.wording_score = wording;
-        payload.tonality_score = tonality;
-        payload.rapport_score = rapport;
+        // Skillset KPI progress
+        if (!currentSalesId) {
+          toast.error("Sales ID not found. Please refresh the page.");
+          setIsSaving(false);
+          return;
+        }
         
-        await xanoService.addKpiSkillsetProgress(payload);
+        // Calculate the average score
+        const totalScore = Math.round((wording + tonality + rapport) / 3);
+        
+        // Submit skillset KPI progress with new payload format
+        const skillsetPayload = {
+          sales_id: currentSalesId,
+          week_number: parseInt(weekNumber),
+          kpi_id: parseInt(kpiId),
+          date_added: formattedDate,
+          wording_score: wording,
+          tonality_score: tonality,
+          rapport_score: rapport,
+          total_score: totalScore,
+          remark: remarks || null,
+          attachment: null // TODO: Implement file upload
+        };
+        
+        await xanoService.addKpiSkillsetProgress(skillsetPayload);
+        toast.success("Skillset progress added successfully");
       }
       
-      toast.success(`${kpiType} progress added successfully`);
       onSuccess();
       
       // Reset form
@@ -156,6 +205,26 @@ export const KPIProgressForm = ({ metadata, isLoading, onSuccess }: KPIProgressF
             />
           </PopoverContent>
         </Popover>
+      </div>
+      
+      {/* Week Number Selection */}
+      <div className="space-y-2">
+        <Label htmlFor="weekNumber">Week Number</Label>
+        <Select 
+          value={weekNumber} 
+          onValueChange={setWeekNumber}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select week" />
+          </SelectTrigger>
+          <SelectContent>
+            {weeks.map((week) => (
+              <SelectItem key={week} value={week}>
+                Week {week}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       
       {/* KPI Type Selection */}
@@ -317,7 +386,7 @@ export const KPIProgressForm = ({ metadata, isLoading, onSuccess }: KPIProgressF
       <Button 
         type="submit" 
         className="w-full bg-black hover:bg-black/80 text-white" 
-        disabled={isSaving || isLoading || !kpiId}
+        disabled={isSaving || isLoading || !kpiId || isLoadingSalesId}
       >
         {isSaving ? (
           <>

@@ -176,7 +176,7 @@ export function WeekAccordion({
                             )}
                           </div>
                           <div className="col-span-2 text-sm whitespace-nowrap text-right">
-                            {count}/{target}
+                            {count}/{target > 0 ? target : "N/A"}
                           </div>
                         </div>
                       );
@@ -315,7 +315,7 @@ export function WeekAccordion({
                                   )}
                                 </>
                               ) : (
-                                <div className="text-sm text-right text-muted-foreground">No target</div>
+                                <div className="text-sm text-right text-muted-foreground">N/A</div>
                               )}
                             </div>
                           </div>
@@ -365,7 +365,7 @@ export function WeekAccordion({
                         <div key={req.requirement_id} className="grid grid-cols-12 gap-2 items-center">
                           <div className="col-span-8 break-words">{req.requirement_name}</div>
                           <div className="col-span-4 text-sm text-right">
-                            {count}{hasTarget ? `/${target}` : ''}
+                            {count}{hasTarget ? `/${target}` : target === 0 ? '/N/A' : ''}
                             {!hasTarget && isComplete && <CheckCircle2 className="inline-block ml-2 h-4 w-4 text-green-500" />}
                           </div>
                         </div>
