@@ -3,8 +3,8 @@ import axios from "axios";
 // Xano API configuration
 const XANO_BASE_URL = import.meta.env.VITE_XANO_BASE_URL || "https://x8ki-letl-twmt.n7.xano.io/api:mN-lWGen";
 
-// Log which URL we're using
-console.log('[xanoService] Using API base URL:', XANO_BASE_URL);
+// Log API base URL once at startup, not on every call
+console.log('[xanoService] Initialized with API base URL:', XANO_BASE_URL);
 
 // Cache configuration
 const CACHE_TTL = 60000; // 1 minute cache TTL
@@ -69,6 +69,34 @@ xanoApi.interceptors.request.use((config) => {
 
 // API service functions
 export const xanoService = {
+  // Fetch with retry functionality
+  _fetchWithRetry: async (fetchFunction, maxRetries = 3, delay = 1000) => {
+    let retries = 0;
+    let lastError = null;
+
+    while (retries < maxRetries) {
+      try {
+        return await fetchFunction();
+      } catch (error) {
+        retries++;
+        lastError = error;
+        
+        // Only log errors, not full responses
+        console.error(`API request failed (attempt ${retries}/${maxRetries})`, 
+          error.response ? `Status: ${error.response.status}` : error.message);
+        
+        if (retries < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, delay));
+          // Exponential backoff
+          delay *= 2;
+        }
+      }
+    }
+
+    console.error(`All ${maxRetries} retry attempts failed.`);
+    throw lastError;
+  },
+
   // Authentication
   signup: async (userData: {
     username: string;
@@ -79,7 +107,6 @@ export const xanoService = {
     role: string;
   }) => {
     try {
-      console.log("Signup request payload:", userData);
       const response = await xanoApi.post("/auth/signup", userData);
       
       // Validate the response contains the expected data
@@ -110,9 +137,6 @@ export const xanoService = {
       
       // Provide more specific error messages based on the error status
       if (error.response) {
-        console.error('Error response status:', error.response.status);
-        console.error('Error response data:', error.response.data);
-        
         // If the server returns a 500 error for invalid credentials
         // We'll transform it to a more appropriate credential error message
         if (error.response.status === 500) {
@@ -355,48 +379,6 @@ export const xanoService = {
     }
   },
 
-  // Fetch with retry functionality
-  _fetchWithRetry: async (fetchFunction, maxRetries = 3, delay = 1000) => {
-    let retries = 0;
-    let lastError = null;
-
-    while (retries < maxRetries) {
-      try {
-        return await fetchFunction();
-      } catch (error) {
-        retries++;
-        lastError = error;
-        
-        console.log(`Attempt ${retries}/${maxRetries} failed:`, error);
-        
-        // Log more details about the error for debugging
-        if (error.response) {
-          // The request was made and the server responded with a status code
-          // that falls out of the range of 2xx
-          console.error('Error response data:', error.response.data);
-          console.error('Error response status:', error.response.status);
-          console.error('Error response headers:', error.response.headers);
-        } else if (error.request) {
-          // The request was made but no response was received
-          console.error('Error request:', error.request);
-        } else {
-          // Something happened in setting up the request that triggered an Error
-          console.error('Error message:', error.message);
-        }
-        
-        if (retries < maxRetries) {
-          console.log(`Retrying in ${delay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          // Exponential backoff
-          delay *= 2;
-        }
-      }
-    }
-
-    console.error(`All ${maxRetries} retry attempts failed.`);
-    throw lastError;
-  },
-
   // Mentor Dashboard - Sales Data
   async getMentorDashboardSales() {
     return this._fetchWithRetry(() => {
@@ -496,12 +478,10 @@ export const xanoService = {
     });
   },
 
-  // Get current sales user data from /sales_interface endpoint
+  // Get sales interface data for current user
   getSalesInterface: async () => {
     try {
-      console.log('Fetching sales interface data for current user...');
       const response = await xanoApi.get('/sales_interface');
-      console.log('Sales interface data:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error fetching sales interface data:', error);
@@ -511,18 +491,15 @@ export const xanoService = {
   
   // Get metadata for sales interface progress page
   getSalesInterfaceMetadata: async () => {
-    console.log('[xanoService] Fetching sales interface metadata');
     try {
       const response = await xanoService._fetchWithRetry(() => {
-        console.log('[xanoService] Attempting with sales_interface/{metadata} endpoint');
         return xanoApi.get('/sales_interface/metadata').then(response => {
-          console.log('[xanoService] Sales interface metadata response:', response.data);
           return response.data;
         });
       });
       return response;
     } catch (error) {
-      console.error('[xanoService] Failed to fetch metadata:', error);
+      console.error('Error fetching sales interface metadata:', error);
       throw error;
     }
   },
@@ -534,20 +511,15 @@ export const xanoService = {
     
     // Check cache first
     const cachedData = apiCache.get(cacheKey);
-    if (cachedData) {
-      console.log(`Using cached target data for sales ID: ${salesId}, week: ${weekNumber}`);
-      return cachedData;
-    }
+    if (cachedData) return cachedData;
     
     return xanoService._fetchWithRetry(() => {
-      console.log(`Fetching sales interface target for sales ID: ${salesId}, week: ${weekNumber}...`);
       return xanoApi.get('/sales_interface_progress/target', {
         params: {
           sales_id: salesId,
           week_number: weekNumber 
         }
       }).then(response => {
-        console.log('Sales interface target response:', response.data);
         // Cache the response
         apiCache.set(cacheKey, response.data, CACHE_TTL * 5); // 5 minute TTL for target data
         return response.data;
@@ -562,21 +534,15 @@ export const xanoService = {
     
     // Check cache first
     const cachedData = apiCache.get(cacheKey);
-    if (cachedData) {
-      console.log(`Using cached progress data for sales ID: ${salesId}, week: ${weekNumber}`);
-      return cachedData;
-    }
+    if (cachedData) return cachedData;
     
     return xanoService._fetchWithRetry(() => {
-      console.log(`Fetching sales interface progress for sales ID: ${salesId}, week: ${weekNumber}...`);
       return xanoApi.get('/sales_interface_progress', {
         params: {
           sales_id: salesId,
           week_number: weekNumber 
         }
       }).then(response => {
-        console.log('Raw sales interface progress response:', response.data);
-        
         // Filter skillset data to get only the latest entry for each kpi_id
         if (response.data && response.data.kpi_skillset_progress1 && Array.isArray(response.data.kpi_skillset_progress1)) {
           // Create a map to store the latest entry for each kpi_id
@@ -595,7 +561,6 @@ export const xanoService = {
           
           // Replace the original skillset array with our filtered one
           response.data.kpi_skillset_progress1 = Array.from(latestSkillsetMap.values());
-          console.log('Filtered sales interface progress data:', response.data);
         }
         
         // Cache the filtered response
@@ -615,10 +580,8 @@ export const xanoService = {
     remark?: string | null;
     attachment?: any | null;
   }) => {
-    console.log('[xanoService] Adding KPI action progress:', payload);
     const response = await xanoService._fetchWithRetry(() => {
       return xanoApi.post('/sales_interface_progress/Action', payload).then(response => {
-        console.log('[xanoService] Add KPI action progress response:', response.data);
         return response.data;
       });
     });
@@ -638,10 +601,8 @@ export const xanoService = {
     remark?: string | null;
     attachment?: any | null;
   }) => {
-    console.log('[xanoService] Adding KPI skillset progress:', payload);
     const response = await xanoService._fetchWithRetry(() => {
       return xanoApi.post('/sales_interface_progress_skillset', payload).then(response => {
-        console.log('[xanoService] Add KPI skillset progress response:', response.data);
         return response.data;
       });
     });
@@ -663,10 +624,8 @@ export const xanoService = {
     remark?: string | null;
     attachment?: any | null;
   }) => {
-    console.log('[xanoService] Adding requirement progress:', payload);
     const response = await xanoService._fetchWithRetry(() => {
       return xanoApi.post('/sales_interface_progress_requirement', payload).then(response => {
-        console.log('[xanoService] Add requirement progress response:', response.data);
         return response.data;
       });
     });
