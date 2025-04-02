@@ -3,6 +3,44 @@ import axios from "axios";
 // Xano API configuration
 const XANO_BASE_URL = "https://x8ki-letl-twmt.n7.xano.io/api:mN-lWGen";
 
+// Cache configuration
+const CACHE_TTL = 60000; // 1 minute cache TTL
+
+// API response cache
+const apiCache = {
+  _cache: new Map(),
+  
+  // Get item from cache
+  get: function(key) {
+    const item = this._cache.get(key);
+    if (!item) return null;
+    
+    // Check if the item has expired
+    if (Date.now() > item.expiry) {
+      this._cache.delete(key);
+      return null;
+    }
+    
+    return item.value;
+  },
+  
+  // Set item in cache with expiry
+  set: function(key, value, ttl = CACHE_TTL) {
+    const expiry = Date.now() + ttl;
+    this._cache.set(key, { value, expiry });
+  },
+  
+  // Generate cache key from method name and params
+  generateKey: function(method, params) {
+    return `${method}:${JSON.stringify(params)}`;
+  },
+  
+  // Clear entire cache
+  clear: function() {
+    this._cache.clear();
+  }
+};
+
 // Helper function to get the token from storage
 const getAuthToken = () => {
   // Check localStorage first, then sessionStorage
@@ -333,8 +371,10 @@ export const xanoService = {
         
         // If this wasn't the last attempt, wait before retrying
         if (attempt < maxRetries) {
-          console.log(`Retrying in ${retryDelay}ms...`);
-          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          // Use longer delays for 429 errors
+          const adjustedDelay = error.response && error.response.status === 429 ? retryDelay * 2 : retryDelay;
+          console.log(`Retrying in ${adjustedDelay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, adjustedDelay));
           
           // Increase delay for next retry (exponential backoff)
           retryDelay *= 2;
@@ -460,10 +500,22 @@ export const xanoService = {
   
   // Get metadata for sales interface progress page
   getSalesInterfaceMetadata: async () => {
+    // Generate cache key
+    const cacheKey = apiCache.generateKey('getSalesInterfaceMetadata', {});
+    
+    // Check cache first
+    const cachedData = apiCache.get(cacheKey);
+    if (cachedData) {
+      console.log('Using cached sales interface metadata');
+      return cachedData;
+    }
+    
     return xanoService._fetchWithRetry(() => {
       console.log('Fetching sales interface metadata...');
       return xanoApi.get('/sales_interface/metadata').then(response => {
         console.log('Sales interface metadata response:', response.data);
+        // Cache the response - metadata can be cached longer (15 mins)
+        apiCache.set(cacheKey, response.data, CACHE_TTL * 15);
         return response.data;
       });
     });
@@ -471,6 +523,16 @@ export const xanoService = {
   
   // Get target data for sales interface progress
   getSalesInterfaceTarget: async (salesId: number, weekNumber: number) => {
+    // Generate cache key
+    const cacheKey = apiCache.generateKey('getSalesInterfaceTarget', { salesId, weekNumber });
+    
+    // Check cache first
+    const cachedData = apiCache.get(cacheKey);
+    if (cachedData) {
+      console.log(`Using cached target data for sales ID: ${salesId}, week: ${weekNumber}`);
+      return cachedData;
+    }
+    
     return xanoService._fetchWithRetry(() => {
       console.log(`Fetching sales interface target for sales ID: ${salesId}, week: ${weekNumber}...`);
       return xanoApi.get('/sales_interface_progress/target', {
@@ -480,6 +542,8 @@ export const xanoService = {
         }
       }).then(response => {
         console.log('Sales interface target response:', response.data);
+        // Cache the response
+        apiCache.set(cacheKey, response.data, CACHE_TTL * 5); // 5 minute TTL for target data
         return response.data;
       });
     });
@@ -487,6 +551,16 @@ export const xanoService = {
   
   // Get sales interface progress with filtered skillset data
   getSalesInterfaceProgress: async (salesId: number, weekNumber: number) => {
+    // Generate cache key
+    const cacheKey = apiCache.generateKey('getSalesInterfaceProgress', { salesId, weekNumber });
+    
+    // Check cache first
+    const cachedData = apiCache.get(cacheKey);
+    if (cachedData) {
+      console.log(`Using cached progress data for sales ID: ${salesId}, week: ${weekNumber}`);
+      return cachedData;
+    }
+    
     return xanoService._fetchWithRetry(() => {
       console.log(`Fetching sales interface progress for sales ID: ${salesId}, week: ${weekNumber}...`);
       return xanoApi.get('/sales_interface_progress', {
@@ -518,6 +592,8 @@ export const xanoService = {
           console.log('Filtered sales interface progress data:', response.data);
         }
         
+        // Cache the filtered response
+        apiCache.set(cacheKey, response.data);
         return response.data;
       });
     });

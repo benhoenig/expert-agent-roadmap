@@ -252,12 +252,96 @@ export function SalesProgress() {
     };
   }, [targetData, progressData, isLoadingProgressData]);
 
+  // Calculate progress percentage based on actual achievements against targets
+  const calculateProgressPercentage = useCallback((weekNumber: number) => {
+    const weekData = createWeekDataForNumber(weekNumber);
+    
+    if (!weekData || !weekData.progressData) {
+      return 0; // No data available
+    }
+    
+    const { progressData, targetData, skillsetData } = weekData;
+    
+    let totalTargets = 0;
+    let achievedTargets = 0;
+    
+    // Check action KPI targets
+    if (targetData && targetData.length > 0) {
+      targetData.forEach(target => {
+        // Skip if no valid target
+        if (!target || !target.target_count || target.target_count <= 0) return;
+        
+        // Only count targets for KPIs (not requirements or skillsets)
+        if (target.kpi_id && target.kpi_id > 0 && target.kpi_id < 8) {
+          totalTargets++;
+          
+          // Find corresponding progress
+          const progress = progressData.find(p => p.kpi_id === target.kpi_id);
+          
+          // If progress meets or exceeds target, count as achieved
+          if (progress && progress.count >= target.target_count) {
+            achievedTargets++;
+          }
+        }
+      });
+    }
+    
+    // Check skillset targets
+    if (targetData && skillsetData && skillsetData.length > 0) {
+      // Find skillset targets (kpi_id 8, 9, 10)
+      const skillsetTargets = targetData.filter(t => t.kpi_id >= 8 && t.kpi_id <= 10);
+      
+      skillsetTargets.forEach(target => {
+        if (!target || !target.target_count || target.target_count <= 0) return;
+        
+        totalTargets++;
+        
+        // Find matching skillset progress by kpi_id
+        const skillProgress = skillsetData.find(s => s.kpi_id === target.kpi_id);
+        
+        // Calculate total score for the skillset (average of wording, tonality, rapport)
+        if (skillProgress) {
+          const wording = parseInt(skillProgress.wording_score || '0');
+          const tonality = parseInt(skillProgress.tonality_score || '0');
+          const rapport = parseInt(skillProgress.rapport_score || '0');
+          const total = Math.round((wording + tonality + rapport) / 3);
+          
+          // If total meets or exceeds target, count as achieved
+          if (total >= target.target_count) {
+            achievedTargets++;
+          }
+        }
+      });
+    }
+    
+    // Check requirement targets
+    if (targetData && targetData.length > 0) {
+      // Find requirement targets
+      const requirementTargets = targetData.filter(t => t.requirement_id > 0);
+      
+      requirementTargets.forEach(target => {
+        if (!target || !target.target_count || target.target_count <= 0) return;
+        
+        totalTargets++;
+        
+        // Find corresponding progress
+        const progress = progressData.find(p => p.requirement_id === target.requirement_id);
+        
+        // If progress meets or exceeds target, count as achieved
+        if (progress && progress.count >= target.target_count) {
+          achievedTargets++;
+        }
+      });
+    }
+    
+    // Calculate percentage - if no targets, default to 0%
+    return totalTargets > 0 ? Math.round((achievedTargets / totalTargets) * 100) : 0;
+  }, [createWeekDataForNumber]);
+
   // Creating a specific week display object
   const createWeekDisplay = useCallback((weekNumber: number) => {
-    const basePercentage = weekNumber <= 4 ? 60 : weekNumber <= 8 ? 70 : 80;
-    const weekInMonthIndex = (weekNumber - 1) % 4;
-    const weekVariation = weekInMonthIndex * 5;
-    const progressPercentage = Math.min(Math.max(basePercentage + weekVariation, 0), 100);
+    // Calculate actual progress percentage based on targets and achievements
+    const progressPercentage = calculateProgressPercentage(weekNumber);
     
     return {
       weekNumber,
@@ -265,7 +349,7 @@ export function SalesProgress() {
       progressPercentage,
       weekData: createWeekDataForNumber(weekNumber)
     };
-  }, [createWeekDataForNumber]);
+  }, [calculateProgressPercentage, createWeekDataForNumber]);
 
   // Example monthly data with updated MonthlyAccordion props to handle expansion
   const monthlyData: MonthData[] = useMemo(() => {
