@@ -258,29 +258,18 @@ export const useProgressData = (salesData: SalesUser[], selectedWeeks: Record<nu
   const [isProgressLoading, setIsProgressLoading] = useState<Record<string, boolean>>({});
   const isMountedRef = useRef(true);
   const activeRequestsRef = useRef<Record<string, boolean>>({});
-  const initialLoadAttemptedRef = useRef(false);
-  const requestTimeoutsRef = useRef<number[]>([]);
-
-  // Cleanup function to clear all pending timeouts
-  const clearAllTimeouts = useCallback(() => {
-    requestTimeoutsRef.current.forEach(timeoutId => {
-      window.clearTimeout(timeoutId);
-    });
-    requestTimeoutsRef.current = [];
-  }, []);
 
   // Setup unmount cleanup
   useEffect(() => {
     return () => {
       isMountedRef.current = false;
-      clearAllTimeouts();
     };
-  }, [clearAllTimeouts]);
+  }, []);
 
   const fetchSalesProgress = useCallback(async (salesId: number, weekNumber: number, forceRefresh = false) => {
     const key = `${salesId}-${weekNumber}`;
     
-    // If we already have this data and don't need to force refresh, don't fetch again
+    // Skip if we already have this data and don't need to force refresh
     // Also skip if the same request is already in progress
     if ((salesProgressData[key] && !forceRefresh) || isProgressLoading[key] || activeRequestsRef.current[key]) {
       return;
@@ -313,11 +302,11 @@ export const useProgressData = (salesData: SalesUser[], selectedWeeks: Record<nu
       // Check if component is still mounted
       if (!isMountedRef.current) return;
       
-      console.error(`Error fetching sales progress for salesId: ${salesId}, week: ${weekNumber}:`, error);
+      console.error(`Error fetching sales progress data for salesId: ${salesId}, week: ${weekNumber}:`, error);
       
       // Don't show toast for rate limit errors
       if (error?.response?.status !== 429) {
-        toast.error('Error loading progress data');
+        toast.error('Error loading sales progress data');
       }
     } finally {
       // Remove from active requests
@@ -329,56 +318,13 @@ export const useProgressData = (salesData: SalesUser[], selectedWeeks: Record<nu
     }
   }, [salesProgressData, isProgressLoading]);
 
-  // Fetch initial progress data when sales data is loaded
-  useEffect(() => {
-    if (salesData.length > 0 && 
-        Object.keys(selectedWeeks).length > 0 && 
-        !initialLoadAttemptedRef.current && 
-        isMountedRef.current) {
-      
-      initialLoadAttemptedRef.current = true;
-      
-      // Clear any existing timeouts
-      clearAllTimeouts();
-      
-      // Stagger the initial API calls to avoid hitting rate limits
-      salesData.forEach((sales, index) => {
-        const selectedWeek = selectedWeeks[sales.id] || 1;
-        // Delay each call by 800ms × index to spread them out significantly
-        const timeoutId = window.setTimeout(() => {
-          if (isMountedRef.current) {
-            fetchSalesProgress(sales.id, selectedWeek);
-          }
-        }, 800 + (index * 800)); // First one after 800ms, then spaced 800ms apart
-        
-        requestTimeoutsRef.current.push(timeoutId);
-      });
-    }
-  }, [salesData, selectedWeeks, fetchSalesProgress, clearAllTimeouts]);
-
   const refreshAllProgressData = useCallback(() => {
-    if (!isMountedRef.current) return;
-    
-    // Clear any existing timeouts
-    clearAllTimeouts();
-    
-    if (salesData.length > 0 && Object.keys(selectedWeeks).length > 0) {
-      // Stagger the API calls to avoid hitting rate limits
-      salesData.forEach((sales, index) => {
-        const selectedWeek = selectedWeeks[sales.id] || 1;
-        // Delay each call by 800ms × index to spread them out significantly
-        const timeoutId = window.setTimeout(() => {
-          if (isMountedRef.current) {
-            fetchSalesProgress(sales.id, selectedWeek, true);
-          }
-        }, 800 + (index * 800)); // First one after 800ms, then spaced 800ms apart
-        
-        requestTimeoutsRef.current.push(timeoutId);
-      });
-    }
-    
-    return Promise.resolve(); // Return promise for chaining
-  }, [salesData, selectedWeeks, fetchSalesProgress, clearAllTimeouts]);
+    // Only refresh data for items we've already loaded
+    Object.keys(salesProgressData).forEach(key => {
+      const [salesId, weekNumber] = key.split('-').map(Number);
+      fetchSalesProgress(salesId, weekNumber, true);
+    });
+  }, [fetchSalesProgress, salesProgressData]);
 
   return {
     salesProgressData,
@@ -502,9 +448,9 @@ export const useTargetModal = () => {
   const getCurrentTarget = useCallback((type: 'action' | 'skillset' | 'requirement', id: number, salesId?: number, weekNumber?: number) => {
     if (!salesId || !weekNumber) return 0;
     
-    // Use the cached data for the specific sales and week
+    // Use both the cached data and the state data
     const cacheKey = `${salesId}-${weekNumber}`;
-    const weekSpecificTargetData = targetDataCache.current[cacheKey] || [];
+    const weekSpecificTargetData = targetDataCache.current[cacheKey] || targetData[cacheKey] || [];
     
     // Find the target in the week-specific data
     const targetItem = weekSpecificTargetData.find(item => {
@@ -524,7 +470,7 @@ export const useTargetModal = () => {
     });
     
     return targetItem ? targetItem.target_count : 0;
-  }, [targetDataCache]);
+  }, [targetDataCache, targetData]);
 
   const handleSelectTarget = useCallback((type: 'action' | 'skillset' | 'requirement', id: number, name: string) => {
     console.log(`Selecting target: type=${type}, id=${id}, name=${name}`);

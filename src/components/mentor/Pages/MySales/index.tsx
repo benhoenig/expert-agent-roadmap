@@ -30,7 +30,7 @@ export function MentorMySales() {
   const { 
     salesProgressData, 
     isProgressLoading, 
-    fetchSalesProgress, 
+    fetchSalesProgress,
     refreshAllProgressData 
   } = useProgressData(salesData, selectedWeeks);
   
@@ -50,12 +50,12 @@ export function MentorMySales() {
     targetSalesId,
     targetWeek,
     targetData,
-    isLoadingTargets,
+    getCurrentTarget,
     handleOpenTargetDialog,
     handleSelectTarget,
     handleTargetValueChange,
     handleSaveTarget,
-    getCurrentTarget,
+    isLoadingTargets,
     fetchTargetData
   } = useTargetModal();
 
@@ -64,6 +64,16 @@ export function MentorMySales() {
   
   // Handle accordion state change
   const handleAccordionChange = (value: string) => {
+    if (value) {
+      const salesId = parseInt(value.split('-')[1]);
+      const selectedWeek = selectedWeeks[salesId] || 1;
+      
+      // Only fetch data when expanding
+      if (value !== expandedSalesId) {
+        fetchSalesProgress(salesId, selectedWeek);
+        fetchTargetData(salesId, selectedWeek);
+      }
+    }
     setExpandedSalesId(value === expandedSalesId ? null : value);
   };
 
@@ -89,10 +99,10 @@ export function MentorMySales() {
         targetSalesId, 
         targetWeek, 
         targetCategory,
-        targetDataLength: targetData.length
+        targetDataLength: targetData.length || 0
       });
     }
-  }, [isTargetModalOpen, targetSalesId, targetWeek, targetCategory, targetData.length]);
+  }, [isTargetModalOpen, targetSalesId, targetWeek, targetCategory, targetData]);
 
   const handleWeekChange = (salesId: number, week: string) => {
     const weekNumber = parseInt(week);
@@ -210,12 +220,12 @@ export function MentorMySales() {
                     handleOpenTargetDialog={handleOpenTargetDialog}
                     metadata={metadata}
                     salesProgressData={salesProgressData}
+                    targetData={targetData}
                     isProgressLoading={isProgressLoading}
                     getCommentValue={getCommentValue}
                     handleCommentChange={handleCommentChange}
                     saveComment={saveComment}
                     weeklyData={weeklyData}
-                    targetData={targetData}
                     getCurrentTarget={getCurrentTarget}
                     isExpanded={isSalesExpanded}
                     fetchTargetData={fetchTargetData}

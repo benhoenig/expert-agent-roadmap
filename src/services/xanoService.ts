@@ -630,5 +630,5 @@ export const xanoService = {
       });
     });
     return response;
-  }
+  },
 }; 
