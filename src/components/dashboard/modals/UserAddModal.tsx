@@ -109,30 +109,39 @@ export function UserAddModal({ isOpen, onClose, onUserAdded }: UserAddModalProps
     setIsSaving(true);
     
     try {
-      // Step 1: Prepare basic user data
-      const userData = {
-        user_id: 0,
-        username: formData.username,
-        email: formData.email,
-        password: formData.password,
-        fullname: formData.fullname,
-        nickname: formData.nickname || "",
-        role: selectedRole,
-        status: "Active",
-        starting_date: startDate ? format(startDate, "yyyy-MM-dd") : new Date().toISOString().split('T')[0],
-        generation: formData.generation !== null ? parseInt(String(formData.generation)) : 0, // Default to 0 if null
-        property_type: formData.property_type || "", // Default to empty string if null
-        probation_status: formData.probation_status || "Ongoing",
-        current_rank: formData.current_rank || 1
-      };
+      // Prepare user data based on role
+      const userData = selectedRole === "Mentor" 
+        ? {
+            username: formData.username,
+            email: formData.email,
+            fullname: formData.fullname,
+            nickname: formData.nickname || "",
+            role: "Mentor",
+            status: "Active",
+            password: formData.password,
+            user_id: 0
+          }
+        : {
+            user_id: 0,
+            username: formData.username,
+            email: formData.email,
+            password: formData.password,
+            fullname: formData.fullname,
+            nickname: formData.nickname || "",
+            role: "Sales",
+            status: "Active",
+            starting_date: startDate ? format(startDate, "yyyy-MM-dd") : new Date().toISOString().split('T')[0],
+            generation: formData.generation !== null ? parseInt(String(formData.generation)) : 0,
+            property_type: formData.property_type || "",
+            probation_status: formData.probation_status || "Ongoing",
+            current_rank: formData.current_rank || 1
+          };
       
-      console.log("Step 1: Creating user with data:", userData);
+      console.log("Creating user with data:", userData);
       
-      // Step 2: Create the user
+      // Create the user
       const userResponse = await xanoService.createUser(userData);
       console.log("User created successfully:", userResponse);
-      
-      // No need for a separate sales record creation since we included all fields in the user creation
       
       toast.success("User created successfully");
       if (onUserAdded) {
