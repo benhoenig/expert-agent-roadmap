@@ -55,7 +55,7 @@ export function UserAddModal({ isOpen, onClose, onUserAdded }: UserAddModalProps
   // Options for dropdowns
   const statusOptions = ["Active", "Warning", "Terminate", "Quit"];
   const roleOptions = ["Mentor", "Sales"];
-  const propertyTypeOptions = ["House", "Condominium", "Townhouse", "Land"];
+  const propertyTypeOptions = ["House", "Condo"];
   
   // Handle basic field changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -105,6 +105,7 @@ export function UserAddModal({ isOpen, onClose, onUserAdded }: UserAddModalProps
       return;
     }
     
+    console.log("handleSave function called, starting save process...");
     setIsSaving(true);
     
     try {
@@ -348,6 +349,7 @@ export function UserAddModal({ isOpen, onClose, onUserAdded }: UserAddModalProps
             type="submit"
             variant="primary"
             disabled={isSaving}
+            onClick={handleSave}
           >
             {isSaving ? 'Saving...' : 'Save User'}
           </Button>
